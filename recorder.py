@@ -6,6 +6,7 @@ import subprocess
 import time
 import freenect
 import random 
+import threading
 
 DEBUG = True
 SHOW_WINDOW = False
@@ -58,7 +59,6 @@ class Recorder(object):
         """ Returns buffer in correct frame order """
         return self.frames[self.buffer_index:]+self.frames[:self.buffer_index]
 
-    def save_buffer_to_video(self):
         # Fixme: make shit configurable
         cmdstring = ('ffmpeg',
                      '-r', '%d' % int(round(self.frame_rate)),
@@ -78,6 +78,10 @@ class Recorder(object):
         p.stdin.close()
 
     def handle_key(self, key):
+    def save_buffer_to_video(self):
+        t = threading.Thread(target=self._save_buffer_to_video)
+        t.daemon = True
+        t.start()
         if key == 27: # exit on ESC
             self.keep_running = False
 
