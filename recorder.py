@@ -7,9 +7,13 @@ import time
 import freenect
 import random 
 import threading
+import copy
+import datetime
 
-DEBUG = True
-SHOW_WINDOW = False
+from api import Api
+
+DEBUG = False
+SHOW_WINDOW = True
 
 class Recorder(object):
     def __init__(self, width=640, height=480, num_frames=30*25, limit_fps=None):
@@ -26,6 +30,9 @@ class Recorder(object):
         self.frame_rate = 0
         self.last_frame = time.time()
         self.limit_fps = limit_fps
+
+        self.api = Api(self)
+        self.api_lock = threading.Lock()
 
     def array(self, image):
         return numpy.asarray(image[:,:])
@@ -48,6 +55,7 @@ class Recorder(object):
 
     def buffer_frame(self, frame):
         (retval, jpg_frame) = cv2.imencode(".jpg", frame, (cv.CV_IMWRITE_JPEG_QUALITY, 50))
+        self.current_jpg_frame = jpg_frame
 
         self.frames[self.buffer_index] = jpg_frame
         if self.buffer_index >= self.num_frames - 1:
@@ -57,9 +65,17 @@ class Recorder(object):
 
     def get_ordered_buffer(self):
         """ Returns buffer in correct frame order """
-        return self.frames[self.buffer_index:]+self.frames[:self.buffer_index]
+        return copy.copy(self.frames[self.buffer_index:]+self.frames[:self.buffer_index])
 
+    def loop(self):
+        while self.keep_running:
+            self.update_frame_rate()
+            self.handle_events()
+            self.handle_frame()
+
+    def _save_buffer_to_video(self):
         # Fixme: make shit configurable
+        output_file = datetime.datetime.now().strftime("pool-%Y-%m-%d %H:%M:%S.avi")
         cmdstring = ('ffmpeg',
                      '-r', '%d' % int(round(self.frame_rate)),
                      '-f','image2pipe',
@@ -68,7 +84,7 @@ class Recorder(object):
                      '-c:v', 'libx264',
                      '-preset', 'fast',
                      '-crf', '23',
-                     'ffmpegtest.avi'
+                     output_file
                      )
 
         p = subprocess.Popen(cmdstring, stdin=subprocess.PIPE)
@@ -77,21 +93,35 @@ class Recorder(object):
                 p.stdin.write(jpg_frame.tostring())
         p.stdin.close()
 
-    def handle_key(self, key):
     def save_buffer_to_video(self):
         t = threading.Thread(target=self._save_buffer_to_video)
         t.daemon = True
         t.start()
+
+    def handle_keys(self, key):
         if key == 27: # exit on ESC
             self.keep_running = False
+
+    def handle_events(self):
+        # Handle Api events 
+        with self.api_lock:
+            for event in self.api.events:
+                if event == "save":
+                    recorder.save_buffer_to_video()
+                elif event == "quit":
+                    self.keep_running = False
+            self.api.events = []
+
+        # Handle key events, if a window is shown
+        if SHOW_WINDOW:
+            key = cv2.waitKey(20)
+            self.handle_keys(key)
 
     def debugging_output(self, frame):
         if DEBUG:
             print "Buffer index: %s" % self.buffer_index
         if SHOW_WINDOW:
             cv2.imshow("preview", frame)
-            key = cv2.waitKey(20)
-            self.handle_key(key)
 
     def handle_frame(self, *args, **kwargs):
         raise NotImplementedError()
@@ -112,15 +142,12 @@ class CVCaptureRecorder(Recorder):
         else:
             raise Exception("Could not open video device")
 
-    def loop(self):
-        while self.keep_running:
-            self.update_frame_rate()
+    def handle_frame(self):
+        frame = cv.QueryFrame(self.capture)
+        frame_array = numpy.asarray(frame[:,:])
 
-            frame = cv.QueryFrame(self.capture)
-            frame_array = numpy.asarray(frame[:,:])
-
-            self.buffer_frame(frame_array)
-            self.debugging_output(frame_array)
+        self.buffer_frame(frame_array)
+        self.debugging_output(frame_array)
 
 
 class KinectRecorder(Recorder):
@@ -217,8 +244,8 @@ class KinectRecorder(Recorder):
         video_frame = self.img_from_video_frame(data)
         self.last_video_frame = video_frame
 
-    def handle_key(self, key):
-        super(KinectRecorder, self).handle_key(key)
+    def handle_keys(self, key):
+        super(KinectRecorder, self).handle_keys(key)
         if key == ord('o'):
             self.overlay_video = not self.overlay_video
 
@@ -256,6 +283,9 @@ class KinectRecorder(Recorder):
         self.debugging_output(frame_array)
 
     def loop(self):
+        """ Freenect has its own looping function, so we have to use that. 
+            Put general things that should happen in every frame into the "body" callback.
+        """
         freenect.runloop(depth=self.handle_depth_frame, video=self.handle_video_frame, body=self.kinect_body_callback)
 
 if __name__ == "__main__":
@@ -264,5 +294,5 @@ if __name__ == "__main__":
     try:
         recorder.loop()
     except KeyboardInterrupt:
-        recorder.save_buffer_to_video()
+        pass
    
