@@ -50,7 +50,7 @@ class Recorder(object):
         (retval, jpg_frame) = cv2.imencode(".jpg", frame, (cv.CV_IMWRITE_JPEG_QUALITY, 50))
 
         self.frames[self.buffer_index] = jpg_frame
-        if self.buffer_index == self.num_frames - 1:
+        if self.buffer_index >= self.num_frames - 1:
            self.buffer_index = 0
         else:
            self.buffer_index += 1 
