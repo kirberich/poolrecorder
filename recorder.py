@@ -241,6 +241,7 @@ class KinectRecorder(Recorder):
             raise freenect.Kill
 
     def handle_video_frame(self, dev, data, timestamp):
+        data = data[:, :, ::-1]  # RGB -> BGR
         video_frame = self.img_from_video_frame(data)
         self.last_video_frame = video_frame
 
