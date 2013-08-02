@@ -289,8 +289,8 @@ class KinectRecorder(Recorder):
         freenect.runloop(depth=self.handle_depth_frame, video=self.handle_video_frame, body=self.kinect_body_callback)
 
 if __name__ == "__main__":
-    recorder = CVCaptureRecorder(limit_fps=20)
-    #recorder = KinectRecorder(limit_fps=40)
+    #recorder = CVCaptureRecorder(limit_fps=20)
+    recorder = KinectRecorder(limit_fps=40)
     try:
         recorder.loop()
     except KeyboardInterrupt:
