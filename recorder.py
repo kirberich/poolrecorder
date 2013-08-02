@@ -244,6 +244,11 @@ class KinectRecorder(Recorder):
         video_frame = self.img_from_video_frame(data)
         self.last_video_frame = video_frame
 
+        # Convert the current frame to jpeg and put it into the buffer
+        self.buffer_frame(data)
+
+        self.debugging_output(data)
+
     def handle_keys(self, key):
         super(KinectRecorder, self).handle_keys(key)
         if key == ord('o'):
@@ -268,9 +273,6 @@ class KinectRecorder(Recorder):
             self.gray_image = cv.CreateImage(cv.GetSize(frame), frame.depth, 1)
             self.temp_image = cv.CreateImage(cv.GetSize(frame), frame.depth, 1)
 
-        # Convert the current frame to jpeg and put it into the buffer
-        self.buffer_frame(frame_array)
-
         if self.overlay_video:
             if self.gray_image and self.last_video_frame:
                 cv.CvtColor(self.last_video_frame,self.gray_image,cv.CV_BGR2GRAY)
@@ -279,8 +281,6 @@ class KinectRecorder(Recorder):
             empty_frame_array = numpy.zeros_like(gray_frame_array)
             cv.AddWeighted(self.gray_image, 1, frame, 1, 1, self.temp_image)
             frame_array = self.array(self.temp_image)
-
-        self.debugging_output(frame_array)
 
     def loop(self):
         """ Freenect has its own looping function, so we have to use that. 
