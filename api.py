@@ -1,5 +1,5 @@
 from twisted.web import server, resource
-from twisted.web.error import NoResource
+from twisted.web.resource import NoResource
 from twisted.internet import reactor
 import threading
 import os
