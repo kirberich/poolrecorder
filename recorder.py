@@ -13,7 +13,7 @@ import datetime
 from api import Api
 
 DEBUG = False
-SHOW_WINDOW = True
+SHOW_WINDOW = False
 
 class Recorder(object):
     def __init__(self, width=640, height=480, num_frames=30*25, limit_fps=None):
