@@ -55,6 +55,7 @@ class Recorder(object):
 
     def buffer_frame(self, frame):
         (retval, jpg_frame) = cv2.imencode(".jpg", frame, (cv.CV_IMWRITE_JPEG_QUALITY, 50))
+        jpg_frame = jpg_frame.tostring()
         self.current_jpg_frame = jpg_frame
 
         self.frames[self.buffer_index] = jpg_frame
@@ -90,7 +91,7 @@ class Recorder(object):
         p = subprocess.Popen(cmdstring, stdin=subprocess.PIPE)
         for jpg_frame in self.get_ordered_buffer():
             if jpg_frame is not None:
-                p.stdin.write(jpg_frame.tostring())
+                p.stdin.write(jpg_frame)
         p.stdin.close()
 
     def save_buffer_to_video(self):
