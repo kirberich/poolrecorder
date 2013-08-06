@@ -233,14 +233,15 @@ class KinectRecorder(Recorder):
         freenect.set_tilt_degs(self.dev, tilt)
 
     def kinect_body_callback(self, dev, ctx):
+        self.handle_events()
         if not self.dev:
             self.dev = dev
             self.ctx = ctx
         if not self.keep_running:
-            self.save_buffer_to_video()
             raise freenect.Kill
 
     def handle_video_frame(self, dev, data, timestamp):
+        self.update_frame_rate()
         data = data[:, :, ::-1]  # RGB -> BGR
         video_frame = self.img_from_video_frame(data)
         self.last_video_frame = video_frame
@@ -256,7 +257,7 @@ class KinectRecorder(Recorder):
             self.overlay_video = not self.overlay_video
 
     def handle_depth_frame(self, dev, data, timestamp):
-        self.update_frame_rate()
+	return
         depth = self.pretty_depth(data)
 
         # Calculate depth layers
