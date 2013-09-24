@@ -2,6 +2,7 @@
 
 import cv2, cv
 import numpy
+import math
 import subprocess
 import time
 import freenect
@@ -11,12 +12,13 @@ import copy
 import datetime
 
 from api import Api
+from gui import Gui, Color
 
 DEBUG = False
-SHOW_WINDOW = False
+SHOW_WINDOW = True
 
 class Recorder(object):
-    def __init__(self, width=640, height=480, num_frames=30*25, limit_fps=None):
+    def __init__(self, num_frames=30*25, limit_fps=None):
         if SHOW_WINDOW:
             cv2.namedWindow("preview")
 
@@ -33,6 +35,8 @@ class Recorder(object):
 
         self.api = Api(self)
         self.api_lock = threading.Lock()
+
+        self.gui = Gui()
 
     def array(self, image):
         return numpy.asarray(image[:,:])
@@ -103,6 +107,92 @@ class Recorder(object):
         if key == 27: # exit on ESC
             self.keep_running = False
 
+    def to_grayscale(self, image):
+        tmp = cv.CreateImage(cv.GetSize(image), image.depth, 1)
+        cv.CvtColor(image, tmp,cv.CV_BGR2GRAY)
+        image = self.array(tmp)
+        return image 
+
+    def calibrate(self):
+        """ Fill gui with white, capture a frame, fill with black, capture another frame.
+            Substract the images and calculate a threshold, generate a gradient to get the borders.
+            Calculate a transformation matrix that converts from the coordinates on the frame to screen coordinates.
+        """
+        self.gui.fill(Color(255, 255, 255))
+        self.gui.update()
+        time.sleep(0.2)
+        white_frame = self.to_grayscale(self.capture_frame(as_array=False))
+
+        self.gui.fill(Color(0, 0, 0))
+        self.gui.update()
+        time.sleep(0.2)
+        black_frame = self.to_grayscale(self.capture_frame(as_array=False))
+
+        # Calculate threshold and gradient to end up with an image with just the border of the screen as white pixels
+        diff_frame = cv2.subtract(white_frame, black_frame)
+        threshold_frame = cv2.threshold(diff_frame, 80, 255, cv2.THRESH_BINARY)[1]
+        gradient_frame = cv2.Laplacian(threshold_frame, cv2.CV_64F)
+
+        cv2.imwrite("white.jpg", white_frame)
+        cv2.imwrite("black.jpg", black_frame)
+        cv2.imwrite("diff.jpg", diff_frame)
+        cv2.imwrite("threshold.jpg", threshold_frame)
+        cv2.imwrite("gradient.jpg", gradient_frame)
+
+        self.gui.fill(Color(255, 255, 255))
+        self.gui.update()
+
+        # Get list of all white pixels in the gradient as [(x,y), (x,y), ...]
+        border_candidate_points = numpy.transpose(gradient_frame.nonzero())
+        border_left = []
+        border_right = []
+        border_top = []
+        border_bottom = []
+
+        for x in range(0, 100):
+            candidate = random.choice(border_candidate_points)
+            can_x, can_y = candidate
+            up = down = left = right = None
+            # Walk along a 13x13 square path around the point and look for other border points
+            for x in range(-6, 7):
+                for y in [-6, 7]:
+                    if gradient_frame[can_x+x][can_y+y] == 255:
+                        if y < 0:
+                            down = (can_x+x, can_y+y)
+                        else:
+                            up = (can_x+x, can_y+y)
+
+            for y in range(-6, 7):
+                for x in [-6, 7]:
+                    if gradient_frame[can_x+x][can_y+y] == 255:
+                        if x < 0:
+                            left = (can_x+x, can_y+y)
+                        else:
+                            right = (can_x+x, can_y+y)
+
+            # If two opposing sides of the square have border points, and all three points are roughly on a line
+            # then assume this is an actual proper point on the screen border
+            point_found = False
+            if up and down and not left and not right:
+                p = (up[0]-can_x, up[1]-can_y)
+                q = (down[0]-can_x, can_y-down[1])
+                point_found = True
+            elif left and right and not up and not down:
+                p = (can_x-left[0], left[1]-can_y)
+                q = (right[0]-can_x, can_y-right[1])
+                point_found = True
+
+            if point_found:
+                p_abs = math.sqrt(p[0]*p[0] + p[1]*p[1])
+                q_abs = math.sqrt(q[0]*q[0] + q[1]*q[1])
+                if (p[0]*q[0] + p[1]*q[1])/(p_abs*q_abs) > 0.95:
+                    black_frame[can_x][can_y] = 255
+
+            # debugging, paint point on original black_frame
+            #black_frame[candidate[0]][candidate[1]] = 255
+        cv2.imwrite("debug.jpg", black_frame)
+
+
     def handle_events(self):
         # Handle Api events 
         with self.api_lock:
@@ -114,15 +204,23 @@ class Recorder(object):
             self.api.events = []
 
         # Handle key events, if a window is shown
-        if SHOW_WINDOW:
-            key = cv2.waitKey(20)
-            self.handle_keys(key)
+        #if SHOW_WINDOW:
+        #    key = cv2.waitKey(20)
+        #    self.handle_keys(key)
+
+        (event_type, x,y) = self.gui.handle_events()
+        if event_type == 99:
+            self.calibrate()
+        print event_type
 
     def debugging_output(self, frame):
         if DEBUG:
             print "Buffer index: %s" % self.buffer_index
         if SHOW_WINDOW:
             cv2.imshow("preview", frame)
+
+    def capture_frame(self):
+        raise NotImplementedError()
 
     def handle_frame(self, *args, **kwargs):
         raise NotImplementedError()
@@ -131,8 +229,8 @@ class Recorder(object):
         raise NotImplementedError()
 
 class CVCaptureRecorder(Recorder):
-    def __init__(self, width=640, height=480, num_frames=30*25, limit_fps=None):
-        super(CVCaptureRecorder, self).__init__(width, height, num_frames, limit_fps)
+    def __init__(self, num_frames=30*25, limit_fps=None):
+        super(CVCaptureRecorder, self).__init__(num_frames, limit_fps)
         self.capture = cv.CaptureFromCAM(0)
         cv.SetCaptureProperty(self.capture, cv.CV_CAP_PROP_FRAME_WIDTH, 640)
         cv.SetCaptureProperty(self.capture, cv.CV_CAP_PROP_FRAME_HEIGHT, 480)
@@ -143,17 +241,27 @@ class CVCaptureRecorder(Recorder):
         else:
             raise Exception("Could not open video device")
 
-    def handle_frame(self):
+    def capture_frame(self, as_array=True):
         frame = cv.QueryFrame(self.capture)
+        if not as_array:
+            return frame
         frame_array = numpy.asarray(frame[:,:])
+        return frame_array
+
+    def handle_frame(self):
+        frame_array = self.capture_frame()
+
+        #small_frame = cv.CreateImage( (self.gui.width, self.gui.height), frame.depth, frame.nChannels)
+        #cv.Resize(frame, small_frame)
+        #self.gui.draw_image(small_frame)
 
         self.buffer_frame(frame_array)
         self.debugging_output(frame_array)
 
 
 class KinectRecorder(Recorder):
-    def __init__(self, width=640, height=480, num_frames=30*25, limit_fps=None):
-        super(KinectRecorder, self).__init__(width, height, num_frames, limit_fps)
+    def __init__(self, num_frames=30*25, limit_fps=None):
+        super(KinectRecorder, self).__init__(num_frames, limit_fps)
 
         # Kinect depth layers
         self.layers = [
