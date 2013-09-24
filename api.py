@@ -29,6 +29,10 @@ class RecorderHandler(http.Request, object):
 
     def not_found(self, message=None):
         self.setResponseCode(404, message)
+	self.setHeader("Content-Type", "image/gif")
+	f = open("404.gif", "r")
+	content = f.read()
+	self.write(content)
         self.finish()
 
     def simple_render(self, content, content_type="text/plain"):
@@ -55,6 +59,11 @@ class RecorderHandler(http.Request, object):
             self.write(content)
             self.write("--%s\n" % (boundary))
             yield self.wait(0.05)
+
+    def serve_stream_container(self):
+        headers = [("content-type", "text/html")]
+        content = "<html><head><title>Potato Pool Camera</title></head><body><img src='/stream.avi' alt='stream'/></body></html>"
+	self.render(content, headers)
 
     def serve_frame(self):
         return self.simple_render(self.get_frame(), "image/jpg")
@@ -97,12 +106,14 @@ class RecorderHandler(http.Request, object):
                 return self.serve_latest_video()
             elif command.startswith("stream"):
                 return self.serve_stream()
+            elif command.startswith("show_stream"):
+                return self.serve_stream_container()
             elif command == "echo":
                 return self.simple_render(args[0])
         except Exception, e:
             return self.simple_render(e.message)
 
-        return self.simple_render("Invalid command: %s" % command)
+        return self.not_found()
 
 
 class RecorderHandlerFactory(object):
