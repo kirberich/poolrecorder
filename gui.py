@@ -103,6 +103,14 @@ class Gui(object):
         pygame_surface = pygame.transform.flip(pygame_surface, True, True)
         self.screen.blit(pygame_surface, (0,0)) 
 
+    def draw_image_slow(self, image):
+        h,w = image.shape
+        image = image/255.0
+        for x in range(0, w):
+            for y in range(0, h):
+                color = Color(image[y][x], image[y][x], image[y][x])
+                self.draw_pixel(x,y, color)
+
     def apply_colors(self, fill_color, stroke_color):
         """ Apply fill and stroke colors to the current path """
         if fill_color:
