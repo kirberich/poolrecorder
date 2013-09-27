@@ -130,7 +130,7 @@ class Recorder(object):
 
         # Calculate threshold and gradient to end up with an image with just the border of the screen as white pixels
         diff_frame = cv2.subtract(white_frame, black_frame)
-        threshold_frame = cv2.threshold(diff_frame, 80, 255, cv2.THRESH_BINARY)[1]
+        threshold_frame = cv2.threshold(diff_frame, 40, 255, cv2.THRESH_BINARY)[1]
         gradient_frame = cv2.Laplacian(threshold_frame, cv2.CV_64F)
 
         cv2.imwrite("white.jpg", white_frame)
@@ -144,31 +144,36 @@ class Recorder(object):
 
         # Get list of all white pixels in the gradient as [(x,y), (x,y), ...]
         border_candidate_points = numpy.transpose(gradient_frame.nonzero())
-        border_left = []
-        border_right = []
-        border_top = []
-        border_bottom = []
+        borders = {
+            'left': [],
+            'right': [],
+            'top': [],
+            'bottom': []
+        }
 
         for x in range(0, 100):
             candidate = random.choice(border_candidate_points)
             can_x, can_y = candidate
             up = down = left = right = None
             # Walk along a 13x13 square path around the point and look for other border points
-            for x in range(-6, 7):
-                for y in [-6, 7]:
-                    if gradient_frame[can_x+x][can_y+y] == 255:
-                        if y < 0:
-                            down = (can_x+x, can_y+y)
-                        else:
-                            up = (can_x+x, can_y+y)
+            try:
+                for x in range(-6, 7):
+                    for y in [-6, 7]:
+                        if gradient_frame[can_x+x][can_y+y] == 255:
+                            if y < 0:
+                                down = (can_x+x, can_y+y)
+                            else:
+                                up = (can_x+x, can_y+y)
 
-            for y in range(-6, 7):
-                for x in [-6, 7]:
-                    if gradient_frame[can_x+x][can_y+y] == 255:
-                        if x < 0:
-                            left = (can_x+x, can_y+y)
-                        else:
-                            right = (can_x+x, can_y+y)
+                for y in range(-6, 7):
+                    for x in [-6, 7]:
+                        if gradient_frame[can_x+x][can_y+y] == 255:
+                            if x < 0:
+                                left = (can_x+x, can_y+y)
+                            else:
+                                right = (can_x+x, can_y+y)
+            except IndexError:
+                continue
 
             # If two opposing sides of the square have border points, and all three points are roughly on a line
             # then assume this is an actual proper point on the screen border
@@ -183,13 +188,25 @@ class Recorder(object):
                 point_found = True
 
             if point_found:
+                # Test if the three points are roughly on one line
                 p_abs = math.sqrt(p[0]*p[0] + p[1]*p[1])
                 q_abs = math.sqrt(q[0]*q[0] + q[1]*q[1])
                 if (p[0]*q[0] + p[1]*q[1])/(p_abs*q_abs) > 0.95:
+                    # For now, we will simply assume that the image is roughly centered,
+                    # i.e. that the left edge is on the left half of the screen, etc
+                    if up and down:
+                        if can_x < white_frame.width/2:
+                            borders['left'].append((can_x, can_y))
+                        else:
+                            borders['right'].append((can_x, can_y))
+                    else:
+                        if can_y < white_frame.width/2:
+                            borders['top'].append((can_x, can_y))
+                        else:
+                            borders['bottom'].append((can_x, can_y))
+                    # Paint discovered border point on original black frame for debugging
                     black_frame[can_x][can_y] = 255
 
-            # debugging, paint point on original black_frame
-            #black_frame[candidate[0]][candidate[1]] = 255
         cv2.imwrite("debug.jpg", black_frame)
 
 
@@ -400,8 +417,8 @@ class KinectRecorder(Recorder):
         freenect.runloop(depth=self.handle_depth_frame, video=self.handle_video_frame, body=self.kinect_body_callback)
 
 if __name__ == "__main__":
-    #recorder = CVCaptureRecorder(limit_fps=20)
-    recorder = KinectRecorder(limit_fps=40)
+    recorder = CVCaptureRecorder(limit_fps=20)
+    #recorder = KinectRecorder(limit_fps=40)
     try:
         recorder.loop()
     except KeyboardInterrupt:
