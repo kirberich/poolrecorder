@@ -13,6 +13,7 @@ import datetime
 
 from api import Api
 from gui import Gui, Color
+from vector import V
 
 DEBUG = False
 SHOW_WINDOW = True
@@ -142,36 +143,37 @@ class Recorder(object):
         self.gui.fill(Color(255, 255, 255))
         self.gui.update()
 
-        # Get list of all white pixels in the gradient as [(x,y), (x,y), ...]
+        # Get list of all white pixels in the gradient as [(y,x), (y,x), ...]
         border_candidate_points = numpy.transpose(gradient_frame.nonzero())
-        borders = {
-            'left': [],
-            'right': [],
-            'top': [],
-            'bottom': []
-        }
+        borders = {}
+        for border in ['left', 'right', 'top', 'bottom']:
+            borders[border] = {
+                'count': 0,
+                'mean': V(0,0),
+                'vectors': []
+            }
 
-        for x in range(0, 100):
-            candidate = random.choice(border_candidate_points)
-            can_x, can_y = candidate
+        for x in range(0, 500):
+            raw_y, raw_x = random.choice(border_candidate_points)
+            can = V(raw_x, raw_y)
             up = down = left = right = None
             # Walk along a 13x13 square path around the point and look for other border points
             try:
                 for x in range(-6, 7):
                     for y in [-6, 7]:
-                        if gradient_frame[can_x+x][can_y+y] == 255:
+                        if gradient_frame[can.y+y][can.x+x] == 255:
                             if y < 0:
-                                down = (can_x+x, can_y+y)
+                                down = can + (x,y)
                             else:
-                                up = (can_x+x, can_y+y)
+                                up = can + (x,y)
 
                 for y in range(-6, 7):
                     for x in [-6, 7]:
-                        if gradient_frame[can_x+x][can_y+y] == 255:
+                        if gradient_frame[can.y+y][can.x+x] == 255:
                             if x < 0:
-                                left = (can_x+x, can_y+y)
+                                left = can + (x,y)
                             else:
-                                right = (can_x+x, can_y+y)
+                                right = can + (x,y)
             except IndexError:
                 continue
 
@@ -179,35 +181,74 @@ class Recorder(object):
             # then assume this is an actual proper point on the screen border
             point_found = False
             if up and down and not left and not right:
-                p = (up[0]-can_x, up[1]-can_y)
-                q = (down[0]-can_x, can_y-down[1])
+                p = up - can
+                q = V(down.x - can.x, can.y - down.y)
                 point_found = True
             elif left and right and not up and not down:
-                p = (can_x-left[0], left[1]-can_y)
-                q = (right[0]-can_x, can_y-right[1])
+                p = V(can.x-left.x, left.y-can.y)
+                q = V(right.x-can.x, can.y-right.y)
                 point_found = True
 
             if point_found:
                 # Test if the three points are roughly on one line
-                p_abs = math.sqrt(p[0]*p[0] + p[1]*p[1])
-                q_abs = math.sqrt(q[0]*q[0] + q[1]*q[1])
-                if (p[0]*q[0] + p[1]*q[1])/(p_abs*q_abs) > 0.95:
+                if p*q/(p.abs()*q.abs()) > 0.95:
                     # For now, we will simply assume that the image is roughly centered,
                     # i.e. that the left edge is on the left half of the screen, etc
+                    height, width = white_frame.shape
                     if up and down:
-                        if can_x < white_frame.width/2:
-                            borders['left'].append((can_x, can_y))
+                        if can.x < width/2:
+                            border = 'left'
                         else:
-                            borders['right'].append((can_x, can_y))
+                            border = 'right'
                     else:
-                        if can_y < white_frame.width/2:
-                            borders['top'].append((can_x, can_y))
+                        if can.y < height/2:
+                            border = 'top'
                         else:
-                            borders['bottom'].append((can_x, can_y))
+                            border = 'bottom'
+                    borders[border]['count'] += 1
+                    borders[border]['mean'] += can
+                    borders[border]['vectors'].append(can)
+
                     # Paint discovered border point on original black frame for debugging
-                    black_frame[can_x][can_y] = 255
+                    black_frame[can.y][can.x] = 255
+                else:
+                    black_frame[can.y][can.x] = 128
 
         cv2.imwrite("debug.jpg", black_frame)
+        # Go through list of discovered border points and calculate vectors for the borders
+        self.gui.draw_image_slow(black_frame)
+
+        for (border_name, border) in borders.items():
+            if not border['count']:
+                print "Calibration failied. Borders: %s" % borders
+                self.gui.update()
+                return
+            # Divide mean vector by number of vectors to get actual mean for this border
+            real_mean = border['real_mean'] = border['mean']/border['count']
+
+            # Calculate mean direction of border
+            direction_mean = V(0,0)
+            direction_count = 0
+            for vector in border['vectors']:
+                if not vector:
+                    continue
+                direction_vector = real_mean - vector
+                if (direction_vector+direction_mean).abs() < direction_mean.abs():
+                    direction_vector = -direction_vector
+                direction_mean += direction_vector
+                direction_count += 1
+            border['direction_mean'] = direction_mean = direction_mean/direction_count
+            added = real_mean + direction_mean
+            colors = {
+                'left': Color(255, 0, 0),
+                'right': Color(0, 255, 0),
+                'top': Color(255, 255, 0),
+                'bottom': Color(0, 0, 255)
+            }
+            self.gui.draw_line(real_mean.x, real_mean.y, added.x, added.y, stroke_color = colors[border_name])
+        self.gui.update()
+
+        print "Calibration successful: %s" % borders
 
 
     def handle_events(self):
@@ -228,7 +269,6 @@ class Recorder(object):
         (event_type, x,y) = self.gui.handle_events()
         if event_type == 99:
             self.calibrate()
-        print event_type
 
     def debugging_output(self, frame):
         if DEBUG:
