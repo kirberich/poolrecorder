@@ -40,24 +40,25 @@ class Recorder(object):
         self.gui = Gui(width=640, height=480)
 
         test_element_area = numpy.zeros((480, 640))
-        test_element_area[100:130, 100:200] = 1
+        test_element_area[100:130, 100:300] = 1
         base_state = (
-            self.gui.draw_rect, 
-            [100, 100, 100, 30],
-            {'fill_color': Color(0.2, 1, 0)}
+            self.gui.draw_button, 
+            [100, 100, 200, 30, 'Yeah buttons Baby'], 
+            {}
         )
         hover_state = (
-            self.gui.draw_rect, 
-            [100, 100, 100, 30],
-            {'fill_color': Color(0.8, 0.5, 0)}
+            self.gui.draw_button, 
+            [100, 100, 200, 30, 'Yeah buttons Baby'], 
+            {'fill_color': Color(0.98, 0.98, 0.95)}
         )
         active_state = (
-            self.gui.draw_rect, 
-            [100, 100, 100, 30],
-            {'fill_color': Color(1, 0.2, 0)}
+            self.gui.draw_button, 
+            [100, 100, 200, 30, 'Yeah buttons Baby'], 
+            {'fill_color': Color(0.95, 0.98, 0.95)}
         )
+        callback = self.calibrate
 
-        self.gui.add_element(element_id=1, area=test_element_area, base_state=base_state, hover_state=hover_state, active_state=active_state)
+        self.gui.add_element(element_id=1, area=test_element_area, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
         self.gui.update()
 
     def array(self, image):
@@ -166,6 +167,8 @@ class Recorder(object):
 
         # Get list of all white pixels in the gradient as [(y,x), (y,x), ...]
         border_candidate_points = numpy.transpose(gradient_frame.nonzero())
+        if not border_candidate_points.any(): 
+            return
         borders = {}
         for border in ['left', 'right', 'top', 'bottom']:
             borders[border] = {
@@ -290,6 +293,7 @@ class Recorder(object):
         (event_type, x,y) = self.gui.handle_events()
         if event_type == 99:
             self.calibrate()
+            self.gui.update_elements()
         if event_type:
             print (event_type, x, y)
 

@@ -79,38 +79,43 @@ class Gui(object):
         }
 
         # Draw element
-        self.draw_element_state(base_state)
+        self.call_element_method(base_state)
 
-    def draw_element_state(self, state):
-        print "draw_element_state called"
-        if not state:
-            print "no state"
+    def redraw_elements(self):
+        for element_id in self.elements:
+            self.element_base(element_id, update=False)
+        self.update()
+
+    def call_element_method(self, method):
+        if not method:
+            print "no method"
             return
-        if callable(state):
-            state()
+        if callable(method):
+            method()
         else:
-            state, args, kwargs = state
-            state(*args, **kwargs)
+            method, args, kwargs = method
+            method(*args, **kwargs)
 
     def element_base(self, element_id, update=True):
         if element_id in self.hover_elements:
             del self.hover_elements[element_id]
+        if element_id in self.active_elements:
+            del self.active_elements[element_id]
 
-        self.draw_element_state(self.elements[element_id]['base_state'])
+        self.call_element_method(self.elements[element_id]['base_state'])
 
         if update:
             self.update()
 
     def element_hover(self, element_id, update=True, force=False):
         if not force and (element_id in self.hover_elements or element_id in self.active_elements):
-            print "already hovering"
             return
 
         if element_id in self.active_elements:
             del self.active_elements[element_id]
 
         self.hover_elements[element_id] = self.elements[element_id]
-        self.draw_element_state(self.hover_elements[element_id]['hover_state'])
+        self.call_element_method(self.hover_elements[element_id]['hover_state'])
         if update:
             self.update()
 
@@ -119,7 +124,7 @@ class Gui(object):
             return
 
         self.active_elements[element_id] = self.elements[element_id]
-        self.draw_element_state(self.active_elements[element_id]['active_state'])
+        self.call_element_method(self.active_elements[element_id]['active_state'])
         if update:
             self.update()
 
@@ -135,6 +140,10 @@ class Gui(object):
             else:
                 self.element_base(element_id, update=False)
         self.update()
+
+    def element_trigger_active_callbacks(self):
+        for element_id in self.active_elements:
+            self.call_element_method(self.elements[element_id]['callback'])
 
     def fill(self, color):
         """ Fill the entire surface with one color """
@@ -173,7 +182,9 @@ class Gui(object):
             self.cairo_context.line_to(x,y)
         self.apply_colors(fill_color, stroke_color)
 
-    def draw_text(self, x, y, text, fill_color = None, stroke_color = None):
+    def draw_text(self, x, y, text, fill_color = None, stroke_color = None, font_size=None):
+        if font_size:
+            self.cairo_context.set_font_size(font_size)
         self.cairo_context.move_to(x,y)
         self.cairo_context.text_path(text)
         self.apply_colors(fill_color, stroke_color)
@@ -196,6 +207,24 @@ class Gui(object):
             for y in range(0, h):
                 color = Color(image[y][x], image[y][x], image[y][x])
                 self.draw_pixel(x,y, color)
+
+    def draw_button(self, x, y, width, height, text, fill_color=Color(0.95, 0.95, 0.95), stroke_color=Color(0.8, 0.8, 0.8)):
+        self.draw_rect(x, y, width, height, fill_color=fill_color, stroke_color=stroke_color)
+        font_size = 16
+        text_fits = False
+        offset = [0, 0]
+        while not text_fits:
+            self.cairo_context.set_font_size(font_size)
+            self.cairo_context.select_font_face('Helvetica', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+            xbearing, ybearing, text_width, text_height, xadvance, yadvance = self.cairo_context.text_extents(text)
+            if text_width > width-10 or text_height > height-10:
+                font_size -= 1
+            else:
+                text_fits = True
+                offset[0] = (width - text_width) / 2
+                offset[1] = (height - text_height) / 2
+        self.draw_text(x+offset[0], y+height-offset[1]-1, text, fill_color=Color(0, 0, 0))
+
 
     def apply_colors(self, fill_color, stroke_color):
         """ Apply fill and stroke colors to the current path """
@@ -274,7 +303,8 @@ class Gui(object):
             element_id = self.element_matrix[y][x]
             if(pygame.mouse.get_pressed()[1] == 1):
                 return ("w", x, y)
-
+            print self.hover_elements.keys()
+            print self.active_elements.keys()
             if event.type == pygame_locals.MOUSEMOTION:
                 if element_id: 
                     self.element_hover(element_id)
@@ -297,6 +327,7 @@ class Gui(object):
 
             if event.type == pygame_locals.MOUSEBUTTONUP:
                 if(event.button == 1):
+                    self.element_trigger_active_callbacks()
                     self.elements_inactive()
                     return ("LMBU", x, y)
                 if(event.button == 3):
