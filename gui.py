@@ -174,18 +174,6 @@ class Gui(object):
         self.cairo_context.set_source_rgba(0, 1, 0, 0.5)
         self.cairo_context.stroke()
 
-    # def _bgra_surf_to_rgba_surf(self, buf=None):
-    #     import pdb
-    #     pdb.set_trace()
-    #     if not buf:
-    #         buf = 
-
-    #     else:
-    #         width.buf.width
-
-    #     img = Image.frombuffer('RGBA', (width, height), buf, 'raw', 'BGRA', 0, 1)
-    #     return img
-
     def _bgra_surf_to_rgba_string(self):
         width = self.cairo_surface.get_width()
         height = self.cairo_surface.get_height()
