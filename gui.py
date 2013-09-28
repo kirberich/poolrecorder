@@ -54,7 +54,7 @@ class Gui(object):
         self.hover_elements = {}
         self.active_elements = {}
 
-    def add_element(self, element_id, area, base_state, hover_state=None, active_state=None, callback=None, triggers=['LMBU']):
+    def add_element(self, element_id, area, base_state, hover_state=None, active_state=None, callback=None):
         """ Adds an interface element to the gui
             id: 
                 Identifier for this element, needs to be an integer, unique, and equal to the values inside the area matrix
@@ -65,8 +65,6 @@ class Gui(object):
                 drawing callables for the element's states
             callback:
                 Function to call if this element has been triggered
-            triggers:
-                Interactions that trigger this element, default is left mouse button up (LMBD, LMBU, RMBD, RMBU are supported)
         """
         # Replace elements in self.element_matrix with elements from area (which should be equal to element_id), where area != 0
         self.element_matrix = scipy.where(area, area, self.element_matrix)
@@ -78,7 +76,6 @@ class Gui(object):
             'hover_state': hover_state,
             'active_state': active_state,
             'callback': callback, 
-            'triggers': triggers
         }
 
         # Draw element
