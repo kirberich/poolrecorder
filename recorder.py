@@ -51,8 +51,13 @@ class Recorder(object):
             [100, 100, 100, 30],
             {'fill_color': Color(0.8, 0.5, 0)}
         )
+        active_state = (
+            self.gui.draw_rect, 
+            [100, 100, 100, 30],
+            {'fill_color': Color(1, 0.2, 0)}
+        )
 
-        self.gui.add_element(element_id=1, area=test_element_area, base_state=base_state, hover_state=hover_state)
+        self.gui.add_element(element_id=1, area=test_element_area, base_state=base_state, hover_state=hover_state, active_state=active_state)
         self.gui.update()
 
     def array(self, image):

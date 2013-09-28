@@ -92,15 +92,6 @@ class Gui(object):
             state, args, kwargs = state
             state(*args, **kwargs)
 
-    def element_hover(self, element_id, update=True):
-        if element_id in self.hover_elements:
-            return
-
-        self.hover_elements[element_id] = self.elements[element_id]
-        self.draw_element_state(self.hover_elements[element_id]['hover_state'])
-        if update:
-            self.update()
-
     def element_base(self, element_id, update=True):
         if element_id in self.hover_elements:
             del self.hover_elements[element_id]
@@ -110,9 +101,39 @@ class Gui(object):
         if update:
             self.update()
 
+    def element_hover(self, element_id, update=True, force=False):
+        if not force and (element_id in self.hover_elements or element_id in self.active_elements):
+            print "already hovering"
+            return
+
+        if element_id in self.active_elements:
+            del self.active_elements[element_id]
+
+        self.hover_elements[element_id] = self.elements[element_id]
+        self.draw_element_state(self.hover_elements[element_id]['hover_state'])
+        if update:
+            self.update()
+
+    def element_active(self, element_id, update=True):
+        if element_id in self.active_elements:
+            return
+
+        self.active_elements[element_id] = self.elements[element_id]
+        self.draw_element_state(self.active_elements[element_id]['active_state'])
+        if update:
+            self.update()
+
     def elements_reset(self):
         for element_id in copy.copy(self.hover_elements):
             self.element_base(element_id, update=False)
+        self.update()
+
+    def elements_inactive(self):
+        for element_id in copy.copy(self.active_elements):
+            if element_id in self.hover_elements:
+                self.element_hover(element_id, update=False, force=True)
+            else:
+                self.element_base(element_id, update=False)
         self.update()
 
     def fill(self, color):
@@ -250,13 +271,12 @@ class Gui(object):
         for event in pygame.event.get():
             mousepos = pygame.mouse.get_pos()
             x, y = int(mousepos[0]), int(mousepos[1])
+            element_id = self.element_matrix[y][x]
             if(pygame.mouse.get_pressed()[1] == 1):
                 return ("w", x, y)
 
             if event.type == pygame_locals.MOUSEMOTION:
-                element_id = self.element_matrix[y][x]
                 if element_id: 
-                    print element_id
                     self.element_hover(element_id)
                 else:
                     self.elements_reset()
@@ -269,12 +289,15 @@ class Gui(object):
 
             if event.type == pygame_locals.MOUSEBUTTONDOWN:
                 if(event.button == 1):
+                    if element_id: 
+                        self.element_active(element_id)
                     return ("LMBD", x, y)
                 if(event.button == 3):
                     return ("RMBD", x, y)
 
             if event.type == pygame_locals.MOUSEBUTTONUP:
                 if(event.button == 1):
+                    self.elements_inactive()
                     return ("LMBU", x, y)
                 if(event.button == 3):
                     return ("RMBU", x, y)
