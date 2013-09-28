@@ -1,3 +1,5 @@
 /ffmpegtest.avi
 *.pyc
 *.avi
+*.jpg
+*.png
