@@ -2,6 +2,7 @@ import math
 import pygame
 import cairo
 import numpy
+import scipy
 import Image
 import random
 import copy
@@ -47,8 +48,75 @@ class Gui(object):
         self.height = height
         self.clock = pygame.time.Clock()
 
-        print self.width
-        print self.height
+        # Gui elements
+        self.element_matrix = numpy.zeros((height, width))
+        self.elements = {}
+        self.hover_elements = {}
+        self.active_elements = {}
+
+    def add_element(self, element_id, area, base_state, hover_state=None, active_state=None, callback=None, triggers=['LMBU']):
+        """ Adds an interface element to the gui
+            id: 
+                Identifier for this element, needs to be an integer, unique, and equal to the values inside the area matrix
+            area: 
+                describes what part of the gui should trigger this element,
+                this needs to be a numpy array that is 0 outside the element and element_id inside of it
+            base_state, hover_state, active_state:
+                drawing callables for the element's states
+            callback:
+                Function to call if this element has been triggered
+            triggers:
+                Interactions that trigger this element, default is left mouse button up (LMBD, LMBU, RMBD, RMBU are supported)
+        """
+        # Replace elements in self.element_matrix with elements from area (which should be equal to element_id), where area != 0
+        self.element_matrix = scipy.where(area, area, self.element_matrix)
+
+        # Register element 
+        self.elements[element_id] = {
+            'area': area,
+            'base_state': base_state,
+            'hover_state': hover_state,
+            'active_state': active_state,
+            'callback': callback, 
+            'triggers': triggers
+        }
+
+        # Draw element
+        self.draw_element_state(base_state)
+
+    def draw_element_state(self, state):
+        print "draw_element_state called"
+        if not state:
+            print "no state"
+            return
+        if callable(state):
+            state()
+        else:
+            state, args, kwargs = state
+            state(*args, **kwargs)
+
+    def element_hover(self, element_id, update=True):
+        if element_id in self.hover_elements:
+            return
+
+        self.hover_elements[element_id] = self.elements[element_id]
+        self.draw_element_state(self.hover_elements[element_id]['hover_state'])
+        if update:
+            self.update()
+
+    def element_base(self, element_id, update=True):
+        if element_id in self.hover_elements:
+            del self.hover_elements[element_id]
+
+        self.draw_element_state(self.elements[element_id]['base_state'])
+
+        if update:
+            self.update()
+
+    def elements_reset(self):
+        for element_id in copy.copy(self.hover_elements):
+            self.element_base(element_id, update=False)
+        self.update()
 
     def fill(self, color):
         """ Fill the entire surface with one color """
@@ -183,24 +251,36 @@ class Gui(object):
 
     def handle_events(self):
         for event in pygame.event.get():
+            mousepos = pygame.mouse.get_pos()
+            x, y = int(mousepos[0]), int(mousepos[1])
             if(pygame.mouse.get_pressed()[1] == 1):
-                mousepos = pygame.mouse.get_pos()
-                return ("w",mousepos[0],mousepos[1])
+                return ("w", x, y)
+
+            if event.type == pygame_locals.MOUSEMOTION:
+                element_id = self.element_matrix[y][x]
+                if element_id: 
+                    print element_id
+                    self.element_hover(element_id)
+                else:
+                    self.elements_reset()
                 
             if event.type == pygame_locals.KEYDOWN:
                 if(event.key == pygame_locals.K_p):
-                    mousepos = pygame.mouse.get_pos()
                     exit(0)
-                    return ("p",int(mousepos[0]),int(mousepos[1]))
+                    return ("p", x, y)
                 return((event.key,-1,-1))
-                
+
             if event.type == pygame_locals.MOUSEBUTTONDOWN:
-                if(pygame.mouse.get_pressed()[0] == 1):
-                    return ("LMBD",event.pos[0],event.pos[1])
-                #if(pygame.mouse.get_pressed()[1] == 1):
-                    #return ("MMBD",event.pos[0],event.pos[1])
-                if(pygame.mouse.get_pressed()[2] == 1):
-                    return ("RMBD",event.pos[0],event.pos[1])
+                if(event.button == 1):
+                    return ("LMBD", x, y)
+                if(event.button == 3):
+                    return ("RMBD", x, y)
+
+            if event.type == pygame_locals.MOUSEBUTTONUP:
+                if(event.button == 1):
+                    return ("LMBU", x, y)
+                if(event.button == 3):
+                    return ("RMBU", x, y)
 
         return (None, None, None)
 

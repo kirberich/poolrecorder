@@ -37,7 +37,23 @@ class Recorder(object):
         self.api = Api(self)
         self.api_lock = threading.Lock()
 
-        self.gui = Gui()
+        self.gui = Gui(width=640, height=480)
+
+        test_element_area = numpy.zeros((480, 640))
+        test_element_area[100:130, 100:200] = 1
+        base_state = (
+            self.gui.draw_rect, 
+            [100, 100, 100, 30],
+            {'fill_color': Color(0.2, 1, 0)}
+        )
+        hover_state = (
+            self.gui.draw_rect, 
+            [100, 100, 100, 30],
+            {'fill_color': Color(0.8, 0.5, 0)}
+        )
+
+        self.gui.add_element(element_id=1, area=test_element_area, base_state=base_state, hover_state=hover_state)
+        self.gui.update()
 
     def array(self, image):
         return numpy.asarray(image[:,:])
@@ -269,6 +285,8 @@ class Recorder(object):
         (event_type, x,y) = self.gui.handle_events()
         if event_type == 99:
             self.calibrate()
+        if event_type:
+            print (event_type, x, y)
 
     def debugging_output(self, frame):
         if DEBUG:
