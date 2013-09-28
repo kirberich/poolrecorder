@@ -220,7 +220,7 @@ class Recorder(object):
 
         for (border_name, border) in borders.items():
             if not border['count']:
-                print "Calibration failied. Borders: %s" % borders
+                print "Calibration failed. Borders: %s" % borders
                 self.gui.update()
                 return
             # Divide mean vector by number of vectors to get actual mean for this border
