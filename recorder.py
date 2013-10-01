@@ -39,27 +39,47 @@ class Recorder(object):
 
         self.gui = Gui(width=640, height=480)
 
-        test_element_area = numpy.zeros((480, 640))
-        test_element_area[100:130, 100:300] = 1
+        # Test recording button
         base_state = (
-            self.gui.draw_button, 
+            self.gui.recording_button, 
+            [60, 60, 50], 
+            {}
+        )
+        hover_state = (
+            self.gui.recording_button, 
+            [60, 60, 50], 
+            {'highlight':True}
+        )
+        active_state = (
+            self.gui.recording_button, 
+            [60, 60, 50], 
+            {'active':True}
+        )
+        callback = self.calibrate
+
+        self.gui.add_element(element_id=2, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
+        
+        base_state = (
+            self.gui.button, 
             [100, 100, 200, 30, 'Yeah buttons Baby'], 
             {}
         )
         hover_state = (
-            self.gui.draw_button, 
-            [100, 100, 200, 30, 'Yeah buttons Baby'], 
-            {'fill_color': Color(0.98, 0.98, 0.95)}
+            self.gui.button, 
+            [98, 98, 204, 34, 'Yeah buttons Baby'], 
+            {'fill_color': Color(0.95, 0.95, 0.95), 'bold':True}
         )
         active_state = (
-            self.gui.draw_button, 
-            [100, 100, 200, 30, 'Yeah buttons Baby'], 
-            {'fill_color': Color(0.95, 0.98, 0.95)}
+            self.gui.button, 
+            [98, 98, 204, 34, 'Yeah buttons Baby'], 
+            {'fill_color': Color(0.9, 0.9, 0.9), 'bold': True}
         )
         callback = self.calibrate
-
-        self.gui.add_element(element_id=1, area=test_element_area, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
+        self.gui.add_element(element_id=1, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
+        
         self.gui.update()
+
+
 
     def array(self, image):
         return numpy.asarray(image[:,:])
@@ -141,6 +161,7 @@ class Recorder(object):
             Substract the images and calculate a threshold, generate a gradient to get the borders.
             Calculate a transformation matrix that converts from the coordinates on the frame to screen coordinates.
         """
+        print "calibrate"
         self.gui.fill(Color(255, 255, 255))
         self.gui.update()
         time.sleep(0.2)
@@ -244,7 +265,6 @@ class Recorder(object):
 
         for (border_name, border) in borders.items():
             if not border['count']:
-                print "Calibration failed. Borders: %s" % borders
                 self.gui.update()
                 return
             # Divide mean vector by number of vectors to get actual mean for this border
@@ -272,7 +292,7 @@ class Recorder(object):
             self.gui.draw_line(real_mean.x, real_mean.y, added.x, added.y, stroke_color = colors[border_name])
         self.gui.update()
 
-        print "Calibration successful: %s" % borders
+        print "Calibration successful."
 
 
     def handle_events(self):
@@ -290,12 +310,12 @@ class Recorder(object):
         #    key = cv2.waitKey(20)
         #    self.handle_keys(key)
 
-        (event_type, x,y) = self.gui.handle_events()
-        if event_type == 99:
+        event = self.gui.process_events()
+        if event.key == 'c':
             self.calibrate()
-            self.gui.update_elements()
-        if event_type:
-            print (event_type, x, y)
+            self.gui.redraw_elements()
+        elif event.key == 'p':
+            exit(0)
 
     def debugging_output(self, frame):
         if DEBUG:
