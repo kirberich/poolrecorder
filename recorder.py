@@ -291,6 +291,24 @@ class Recorder(object):
                 'bottom': Color(0, 0, 255)
             }
             self.gui.draw_line(real_mean.x, real_mean.y, added.x, added.y, stroke_color = colors[border_name])
+            self.gui.draw_circle((real_mean.x, real_mean.y), 5, stroke_color = colors[border_name])
+
+        corners = {}
+        # # Calculate corners from border intersections
+        for border1, border2 in [('top', 'left'), ('top', 'right'), ('bottom', 'left'), ('bottom', 'right')]:
+            o1 = borders[border1]['real_mean']
+            d1 = borders[border1]['direction_mean']
+            o2 = borders[border2]['real_mean']
+            d2 = borders[border2]['direction_mean']
+            corner = V.intersection(o1, d1, o2, d2)
+            if not corner:
+                self.gui.update()
+                return
+            print corner
+            corners[border1+"_"+border2] = corner
+            self.gui.draw_circle((corner.x, corner.y), 10, Color(255, 0, 255))
+        print corners
+
         self.gui.update()
 
         print "Calibration successful."
