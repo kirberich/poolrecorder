@@ -79,8 +79,6 @@ class Recorder(object):
         
         self.gui.update()
 
-
-
     def array(self, image):
         return numpy.asarray(image[:,:])
 
