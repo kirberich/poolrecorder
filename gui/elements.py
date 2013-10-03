@@ -46,10 +46,11 @@ class ElementMixin(object):
             'hover_state': hover_state,
             'active_state': active_state,
             'callback': callback, 
+            'animation_state': {}
         }
 
         # Draw element and get its descriptor
-        self.elements[element_id]['descriptor'] = element_descriptor = self.call_element_method(base_state)
+        self.elements[element_id]['descriptor'] = element_descriptor = self.call_element_method(base_state, element_id)
 
     def redraw_elements(self):
         for element_id in self.elements:
@@ -61,14 +62,18 @@ class ElementMixin(object):
                 self.element_base(element_id, update=False)
         #self.update()
 
-    def call_element_method(self, method):
+    def call_element_method(self, method, element_id=None):
         if not method:
             print "no method"
             return
         if callable(method):
+            if element_id:
+                return method(element_id=element_id)
             return method()
         else:
             method, args, kwargs = method
+            if element_id:
+                kwargs['element_id'] = element_id
             return method(*args, **kwargs)
 
     def element_base(self, element_id, update=True):
@@ -80,7 +85,7 @@ class ElementMixin(object):
         if element_id in self.active_elements:
             del self.active_elements[element_id]
 
-        element_descriptor = self.call_element_method(self.elements[element_id]['base_state'])
+        element_descriptor = self.call_element_method(self.elements[element_id]['base_state'], element_id)
 
         if update:
             self.update()
@@ -95,7 +100,7 @@ class ElementMixin(object):
             del self.active_elements[element_id]
 
         self.hover_elements[element_id] = self.elements[element_id]
-        self.call_element_method(self.hover_elements[element_id]['hover_state'])
+        self.call_element_method(self.hover_elements[element_id]['hover_state'], element_id)
         if update:
             self.update()
 
@@ -104,7 +109,7 @@ class ElementMixin(object):
             return
 
         self.active_elements[element_id] = self.elements[element_id]
-        self.call_element_method(self.active_elements[element_id]['active_state'])
+        self.call_element_method(self.active_elements[element_id]['active_state'], element_id)
         if update:
             self.update()
 

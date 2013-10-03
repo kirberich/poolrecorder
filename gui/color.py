@@ -7,3 +7,4 @@ class Color(object):
 
     def __repr__(self):
         return 'Color object: (%s,%s,%s,%s)' % (self.r, self.g, self.b, self.a)
+C = Color

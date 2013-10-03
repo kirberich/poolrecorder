@@ -6,13 +6,15 @@ import random
 import copy
 import math
 
-from color import Color
+from vector import V
+
+from color import Color, C
 from base_gui import BaseGUI
 from primitives import PrimitiveMixin
 from elements import ElementMixin
 
 class Gui(BaseGUI, PrimitiveMixin, ElementMixin):
-    def button(self, x, y, width, height, text, fill_color=Color(0.98, 0.98, 0.98), stroke_color=Color(0.8, 0.8, 0.8), bold=False):
+    def button(self, x, y, width, height, text, fill_color=Color(0.98, 0.98, 0.98), stroke_color=Color(0.8, 0.8, 0.8), bold=False, element_id=None):
         self.draw_rect(x, y, width, height, fill_color=fill_color, stroke_color=stroke_color)
         self.draw_rect(x+1, y+1, width-2, height*0.39, fill_color=Color(1,1,1,0.3))
         font_size = 16
@@ -34,34 +36,69 @@ class Gui(BaseGUI, PrimitiveMixin, ElementMixin):
         # Return element descriptor
         return lambda event_x, event_y: x < event_x < x+width and y < event_y < y+height
 
-    def recording_button(self, x, y, radius, border_color=Color(0.9,0.8,0.8,1), highlight=False, active=False):
-        self.set_color(Color(0,0,0))
-        radial = cairo.RadialGradient(x, y, 0, x, y, radius)
-        radial.add_color_stop_rgba(0.5, 1, 0, 0, 1)
-        if highlight:
-            radial.add_color_stop_rgba(0.9, 0.5, 0, 0, 0.8)
-            radial.add_color_stop_rgba(0.98, 1, 0.5, 0.5, 0.3)
+    def recording_button(self, x, y, radius, border_color=Color(0.9,0.8,0.8,1), highlight=False, active=False, element_id=None):
+        radius -= 2
+        if element_id:
+            state = self.elements[element_id]['animation_state']
+            # offset_highlight_accel = state.get('offset_highlight_accel', V(0,0))
+            # offset_highlight_speed = state.get('offset_highlight_speed', V(0, 0))
+            # offset_highlight_pos = state.get('offset_highlight_pos', V(0, -radius/3))
+
+            # offset_highlight_accel += ((random.random()-0.5)/10, (random.random()-0.5)/10)
+            # offset_highlight_speed += offset_highlight_accel
+            # offset_highlight_pos += offset_highlight_speed
+
+            # state['offset_highlight_accel'] = offset_highlight_accel
+            # state['offset_highlight_speed'] = offset_highlight_speed
+            # state['offset_highlight_pos'] = offset_highlight_pos
+
+            self.elements[element_id]['animation_state'] = state
+
+        # Silly animation test: Calculate mouse angle
+        d = V(x,y) - self.mouse_pos
+        if d.x:
+            alpha = math.atan(d.y/d.x)
         else:
-            radial.add_color_stop_rgba(0.95, 0.3, 0, 0, 1)
-            radial.add_color_stop_rgba(0.98, 0.6, 0.2, 0.2, 0.3)
-        radial.add_color_stop_rgba(1, 1, 1, 1, 0)
-        #self.cairo_context.set_source(radial)
-        self.draw_circle((x, y), radius+2, fill_color=Color(0.7, 0.8, 0.8,0.5), stroke_color=border_color)
+            alpha = math.pi/2
+        if d.x > 0:
+            alpha += math.pi
+        off_x = radius/8*math.cos(alpha)
+        off_y = radius/8*math.sin(alpha)
+
+        radial = self.radial_gradient(x, y, r2=radius)
+        self.radial_step(.5, C(1, 0, 0))
+
+        #radial.add_color_stop_rgba(0.5, 1, 0, 0, 1)
+        if highlight:
+            self.radial_step(.9, C(.5, 0, 0, .8))
+            self.radial_step(.98, C(1, .5, .5, .3))
+        else:
+            self.radial_step(.95, C(.3, 0, 0))
+            self.radial_step(.98, C(.6, .2, .2, .3))
+
         self.draw_circle((x, y), radius, gradient=radial)
-        self.draw_rect(x-radius, y-radius, radius*2, (radius), fill_color=Color(1,1,1,0.1))
+        self.draw_rect(x-radius, y-radius, radius*2, (radius), fill_color=Color(1,1,1,.1))
 
-        radial2 = cairo.RadialGradient(x, y, 0, x, y, radius/2)
-        radial2.add_color_stop_rgba(0, 1, 1, 1, 0.9)
-        radial2.add_color_stop_rgba(0.1, 1, 1, 1, 0.7)
-        radial2.add_color_stop_rgba(0.5, 1, 1, 1, 0.4)
-        radial2.add_color_stop_rgba(1, 1, 1, 1, 0)
-        self.draw_circle((x, y), radius/2, gradient=radial2)
+        # Grey border
+        radial = self.radial_gradient(x, y, radius*0.95, r2=radius+2)
+        self.radial_step(.5, C(.7, .8, .8, .5))
+        self.radial_step(.7, C(.7, .8, .8))
+        self.radial_step(.9, C(.8, .6, .6, .5))
+        self.radial_step(.99, C(.8, .6, .6, .2))
+        self.draw_circle((x, y), radius+2, gradient=radial)
 
+        # White highlight
+        radial = self.radial_gradient(x+off_x, y+off_y, r2=radius/2)
+        self.radial_step(0, C(1,1,.6, a=.9))
+        self.radial_step(.1, C(1,1,.6, a=.7))
+        self.radial_step(.5, C(1,1,.6, a=.4))
+        self.draw_circle((x+off_x, y+off_y), radius/2, gradient=radial)
+
+        # Offset highlight
         if active:
-            radial3 = cairo.RadialGradient(x, y, 0, x, y, radius)
-            radial3.add_color_stop_rgba(0, 1, 1, 0, 0.5)
-            radial3.add_color_stop_rgba(1, 1, 1, 1, 0)
-            self.draw_circle((x, y), radius/2, gradient=radial3)
+            radial = self.radial_gradient(x, y, r2=radius)
+            self.radial_step(0, C(1, 1, 0, .5))
+            self.draw_circle((x, y), radius/2, gradient=radial)
             self.draw_circle((x, y-radius/3), radius*0.66, fill_color=Color(1,1,1,0.15))
         else:
             self.draw_circle((x, y-radius/3), radius*0.66, fill_color=Color(1,1,1,0.25))

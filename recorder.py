@@ -13,10 +13,10 @@ import datetime
 
 from api import Api
 from gui import Gui, Color
-from vector import V
+from gui.vector import V
 
 DEBUG = False
-SHOW_WINDOW = True
+SHOW_WINDOW = False
 
 class Recorder(object):
     def __init__(self, num_frames=30*25, limit_fps=None):
@@ -42,17 +42,17 @@ class Recorder(object):
         # Test recording button
         base_state = (
             self.gui.recording_button, 
-            [60, 60, 50], 
+            [150, 150, 90], 
             {}
         )
         hover_state = (
             self.gui.recording_button, 
-            [60, 60, 50], 
+            [150, 150, 90], 
             {'highlight':True}
         )
         active_state = (
             self.gui.recording_button, 
-            [60, 60, 50], 
+            [150, 150, 90], 
             {'active':True}
         )
         callback = self.calibrate
@@ -75,7 +75,7 @@ class Recorder(object):
             {'fill_color': Color(0.9, 0.9, 0.9), 'bold': True}
         )
         callback = self.calibrate
-        self.gui.add_element(element_id=1, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
+        #self.gui.add_element(element_id=1, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
         
         self.gui.update()
 
@@ -120,6 +120,7 @@ class Recorder(object):
             self.update_frame_rate()
             self.handle_events()
             self.handle_frame()
+            self.gui.update()
 
     def _save_buffer_to_video(self):
         # Fixme: make shit configurable

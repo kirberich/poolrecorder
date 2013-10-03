@@ -6,6 +6,7 @@ import Image
 from pygame import locals as pygame_locals
 
 from color import Color
+from vector import V
 
 class Event(object):
     EVENT_TYPES = ['click', 'mouse_down', 'mouse_up', 'mouse_move', 'key_down', 'key_up', 'key_press']
@@ -42,6 +43,7 @@ class BaseGUI(object):
             height = info.current_h
         self.width = width
         self.height = height
+        self.mouse_pos = V(0,0)
 
         screen = pygame.display.set_mode((width, height))#, pygame_locals.FULLSCREEN)
         pygame.display.set_caption(caption)
@@ -57,6 +59,7 @@ class BaseGUI(object):
     def cairo_setup(self):
         data = numpy.empty(self.width * self.height * 4, dtype=numpy.int8)
 
+        self.cairo_radial = None
         self.cairo_surface = cairo.ImageSurface.create_for_data(data, cairo.FORMAT_ARGB32, self.width, self.height, self.width * 4)
         self.cairo_context = cairo.Context(self.cairo_surface)  
         self.cairo_context.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
@@ -67,6 +70,7 @@ class BaseGUI(object):
         for e in pygame.event.get():
             mousepos = pygame.mouse.get_pos()
             x, y = int(mousepos[0]), int(mousepos[1])
+            self.mouse_pos = V(x,y)
             event = None
 
             if e.type == pygame_locals.MOUSEMOTION:
@@ -92,6 +96,22 @@ class BaseGUI(object):
                     handler(event)
                 return event
         return Event()
+
+    def radial_gradient(self, x1, y1, r1=0, x2=0, y2=0, r2=None):
+        x2 = x2 or x1
+        y2 = y2 or y1
+        if not r2: 
+            raise Exception("radius 2 is required")
+        self.cairo_radial = cairo.RadialGradient(x1, y1, r1, x2, y2, r2)
+
+        # Avoid overspill of the gradient 
+        if r1:
+            self.radial_step(0, Color(a=0))
+        self.radial_step(1, Color(a=0))
+        return self.cairo_radial
+
+    def radial_step(self, position, color):
+        self.cairo_radial.add_color_stop_rgba(position, color.r, color.g, color.b, color.a)
 
     def set_color(self, color):
         self.cairo_context.set_source_rgba(color.r, color.g, color.b, color.a)
