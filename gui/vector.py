@@ -14,6 +14,32 @@ class V(object):
 	def from_tuple(cls, (x,y)):
 		return V(x,y)
 
+	@classmethod
+	def intersection(cls, o1, d1, o2, d2):
+		""" Find intersection of two vectors, if any """
+		# o1 + l1 * d1 = o2 + l2 * d2
+		# l1 * d1 - l2 * d2 = o2 - o1
+		# (l1 * d1.x, l1 * d1.y) - (l2 * d2.x, l2 * d2.y) = o2 - o1
+
+		# l1 * d1.x - l2 * d2.x = o2.x - o1.x
+		# l1 * d1.x = o2.x - o1.x + l2 * d2.x
+		# l1 = (o2.x - o1.x + l2 * d2.x) / d1.x
+
+		# l1 * d1.y - l2 * d2.y = o2.y - o1.y
+		# l2 * d2.y = l1 * d1.y -o 2.y + o1.y
+
+		# l2 * d2.y 	= ((o2.x - o1.x + l2 * d2.x) / d1.x) * d1.y - o2.y + o1.y
+		# 			= (o2.y - o1.x)*d1.y/d1.x + (l2 * d2.x)*d1.y/d1.x - o2.y + o1.y
+		# l2 * d2.y - (l2 * d2.x)*d1.y/d1.x = (o2.y - o1.x)*d1.y/d1.x - o2.y + o1.y
+		# l2 * d2.y - l2*d2.x*d1.y/d1.x 
+		# l2 * (d2.y - d2.x*d1.y/d1.x) = (o2.y - o1.x)*d1.y/d1.x - o2.y + o1.y
+		
+		try:
+			l2 = ((o2.x - o1.x)*d1.y/d1.x - o2.y + o1.y) / (d2.y - d2.x*d1.y/d1.x)
+			return o2 + d2*l2
+		except ZeroDivisionError:
+			return None
+
 	def abs(self):
 		return math.sqrt(self.x*self.x + self.y*self.y)
 
@@ -21,6 +47,10 @@ class V(object):
 		if isinstance(other, tuple) or isinstance(other, list):
 			return V(other[0], other[1])
 		return other
+
+	def cross(self, other):
+		""" cross product """
+		return V(self.x*other.y - other.x*self.y)
 
 	def __cmp__(self, other):
 		other = self.consume_tuple(other)
@@ -48,11 +78,7 @@ class V(object):
 		other = self.consume_tuple(other)
 		if isinstance(other, V):
 			return (self.x * other.x + self.y * other.y)
-		try:
-			return V(other * self.x, other * self.y)
-		except:
-			import pdb
-			pdb.set_trace()
+		return V(other * self.x, other * self.y)
 
 	def __div__(self, other):
 		if not other: 
