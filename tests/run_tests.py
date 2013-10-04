@@ -3,6 +3,8 @@ import unittest
 from unittest import TestLoader, TextTestRunner
 import sys
 
+sys.path.append('../')
+
 TEST_PATH = "."
 
 loader = TestLoader()
