@@ -23,8 +23,25 @@ class V(object):
 		except ZeroDivisionError:
 			return None
 
+	@classmethod
+	def point_line_projection(cls, v1, v2, p):
+		""" Returns the projection of the point p on the line defined 
+			by the two endpoints v1 and v2
+		"""
+		d = v2-v1
+		l2 = d.abs_sq()
+		if l2 == 0:
+			return p - v1
+
+		a = ((p-v1) * d)/l2
+		return v1 + d * a
+
+	def abs_sq(self):
+		""" Square of absolute value of vector self """
+		return self.x*self.x + self.y*self.y
+
 	def abs(self):
-		return math.sqrt(self.x*self.x + self.y*self.y)
+		return math.sqrt(self.abs_sq())
 
 	def consume_tuple(self, other):
 		if isinstance(other, tuple) or isinstance(other, list):
@@ -38,7 +55,7 @@ class V(object):
 	def __cmp__(self, other):
 		other = self.consume_tuple(other)
 		if self.x == other.x and self.y == other.y: return 0
-		if self.abs < other.abs: return -1
+		if self.abs() < other.abs(): return -1
 		return 1
 
 	def __nonzero__(self):
