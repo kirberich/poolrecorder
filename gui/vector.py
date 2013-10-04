@@ -16,24 +16,7 @@ class V(object):
 
 	@classmethod
 	def intersection(cls, o1, d1, o2, d2):
-		""" Find intersection of two vectors, if any """
-		# o1 + l1 * d1 = o2 + l2 * d2
-		# l1 * d1 - l2 * d2 = o2 - o1
-		# (l1 * d1.x, l1 * d1.y) - (l2 * d2.x, l2 * d2.y) = o2 - o1
-
-		# l1 * d1.x - l2 * d2.x = o2.x - o1.x
-		# l1 * d1.x = o2.x - o1.x + l2 * d2.x
-		# l1 = (o2.x - o1.x + l2 * d2.x) / d1.x
-
-		# l1 * d1.y - l2 * d2.y = o2.y - o1.y
-		# l2 * d2.y = l1 * d1.y -o 2.y + o1.y
-
-		# l2 * d2.y 	= ((o2.x - o1.x + l2 * d2.x) / d1.x) * d1.y - o2.y + o1.y
-		# 			= (o2.y - o1.x)*d1.y/d1.x + (l2 * d2.x)*d1.y/d1.x - o2.y + o1.y
-		# l2 * d2.y - (l2 * d2.x)*d1.y/d1.x = (o2.y - o1.x)*d1.y/d1.x - o2.y + o1.y
-		# l2 * d2.y - l2*d2.x*d1.y/d1.x 
-		# l2 * (d2.y - d2.x*d1.y/d1.x) = (o2.y - o1.x)*d1.y/d1.x - o2.y + o1.y
-		
+		""" Find intersection of two vectors, if any """		
 		try:
 			l2 = ((o2.x - o1.x)*d1.y/d1.x - o2.y + o1.y) / (d2.y - d2.x*d1.y/d1.x)
 			return o2 + d2*l2
