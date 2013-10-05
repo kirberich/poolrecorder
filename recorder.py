@@ -307,6 +307,9 @@ class Recorder(object):
 
         print "Calibration successful."
 
+    def handle_custom_event(self, event):
+        """ Child classes can override this to do additional event handling. """
+        pass
 
     def handle_events(self):
         # Handle Api events 
@@ -324,6 +327,12 @@ class Recorder(object):
             self.gui.redraw_elements()
         elif event.key == 'p':
             self.keep_running = False
+        elif event.key == 'f':
+            matrix = numpy.zeros((640, 480))
+            matrix[150:160, 150:160] = 1
+            self.gui.trigger_event_matrix(matrix, event_type="mouse_move")
+        else:
+            self.handle_custom_event(event)
 
     def debugging_output(self, frame):
         if DEBUG:
@@ -372,14 +381,14 @@ class KinectRecorder(Recorder):
         super(KinectRecorder, self).__init__(num_frames, limit_fps)
 
         # Kinect depth layers
-        self.layers = [
+        self.layers = {
             # Low, high, value
             # Actual data starts around 125 (closest to sensor), 100 when not using calibration
-            (125, 126, 255), 
+            'hover': (125, 126, 255), 
             #(160, 180, 150), 
             #(200, 220, 100), 
             #(240, 255, 0) # Background
-            ]
+            }
 
         self.overlay_video = False
 
@@ -393,7 +402,7 @@ class KinectRecorder(Recorder):
         self.led_state = 0
         self.tilt = 0
 
-    def threshold(self, depth_map, low, high, value=255):
+    def threshold(self, depth_map, low, high, value=1):
         depth_map = value * numpy.logical_and(depth_map >= low, depth_map < high)
         return depth_map
 
@@ -467,9 +476,8 @@ class KinectRecorder(Recorder):
 
         self.debugging_output(frame_array)
 
-    def handle_keys(self, key):
-        super(KinectRecorder, self).handle_keys(key)
-        if key == ord('o'):
+    def handle_custom_event(self, event):
+        if event.key == 'o':
             self.overlay_video = not self.overlay_video
 
     def handle_depth_frame(self, dev, data, timestamp):
@@ -478,13 +486,14 @@ class KinectRecorder(Recorder):
         #frame_array = self.array(frame)
         # Calculate depth layers
         #dilated = numpy.zeros_like(depth)
-        for (low, high, value) in self.layers[:1]:
+        (low, high, value) = self.layers['hover']
         #    depth_copy = numpy.copy(depth)
-            layer = self.threshold(depth, low, high, value=value)
-            layer = layer.astype(numpy.uint8)
-            kernel = numpy.ones((5,5), numpy.uint8)
-            layer = cv2.dilate(layer, kernel)
-            layer = cv2.erode(layer, kernel)
+        layer = self.threshold(depth, low, high, value=value)
+        layer = layer.astype(numpy.uint8)
+        kernel = numpy.ones((5,5), numpy.uint8)
+        layer = cv2.dilate(layer, kernel)
+        layer = cv2.erode(layer, kernel)
+        self.gui.trigger_event_matrix(layer, event_type='mouse_move')
             #cv2.erode(dilated, layer, None, 10)
         #    depth_layers = numpy.add(depth_layers, segment)
         #self.buffer_frame(self.array(layer))

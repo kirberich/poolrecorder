@@ -34,7 +34,10 @@ class Gui(BaseGUI, PrimitiveMixin, ElementMixin):
         self.draw_text(x+offset[0], y+height-offset[1]-2, text, fill_color=Color(0, 0, 0))
 
         # Return element descriptor
-        return lambda event_x, event_y: x < event_x < x+width and y < event_y < y+height
+        return {
+            'descriptor': lambda event_x, event_y: x < event_x < x+width and y < event_y < y+height,
+            'bounding_box': ((x,y), (width, height))
+        }
 
     def recording_button(self, x, y, radius, border_color=Color(0.9,0.8,0.8,1), highlight=False, active=False, element_id=None):
         radius -= 2
@@ -103,8 +106,11 @@ class Gui(BaseGUI, PrimitiveMixin, ElementMixin):
         else:
             self.draw_circle((x, y-radius/3), radius*0.66, fill_color=Color(1,1,1,0.25))
 
-        # Return element descriptor
-        return lambda event_x, event_y: (event_x - x)**2 + (event_y - y)**2 < radius**2
+        # Return element descriptor and bounding box
+        return {
+            'descriptor': lambda event_x, event_y: (event_x - x)**2 + (event_y - y)**2 < radius**2,
+            'bounding_box': ((x-radius,y-radius), (radius*2, radius*2))
+        }
 
     def update(self):
         self.fill(Color(1, 1, 1))
