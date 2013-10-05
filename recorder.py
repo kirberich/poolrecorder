@@ -472,7 +472,7 @@ class KinectRecorder(Recorder):
         video_frame = self.img_from_video_frame(data)
         frame_array = self.array(video_frame)
         self.last_video_frame = video_frame
-        self.buffer_frame(frame_array)
+        #self.buffer_frame(frame_array)
 
         self.debugging_output(frame_array)
 
@@ -496,7 +496,7 @@ class KinectRecorder(Recorder):
         self.gui.trigger_event_matrix(layer, event_type='mouse_move')
             #cv2.erode(dilated, layer, None, 10)
         #    depth_layers = numpy.add(depth_layers, segment)
-        #self.buffer_frame(self.array(layer))
+        self.buffer_frame(self.array(layer))
 
         #frame = self.img_from_depth_frame(depth_layers)
 

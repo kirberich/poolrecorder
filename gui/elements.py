@@ -13,6 +13,7 @@ class ElementMixin(object):
         self.elements = {}
         self.hover_elements = {}
         self.active_elements = {}
+        self.elements_triggered_through_matrix = set([])
 
         self.event_handlers.append(self.element_handle_event)
 
@@ -71,10 +72,19 @@ class ElementMixin(object):
                     to_trigger.append(element_id)
                     del elements_to_check[element_id]
                     break
+            else:
+                event_matrix[y][x] = 0
 
         for element_id in to_trigger:
             event = Event(event_type)
             self.element_trigger_event(element_id, event)
+            self.elements_triggered_through_matrix.add(element_id)
+
+        triggered_before = list(self.elements_triggered_through_matrix)
+        for element_id in triggered_before:
+            if element_id not in to_trigger:
+                self.element_base(element_id)
+                self.elements_triggered_through_matrix.remove(element_id)
 
     def add_element(self, element_id, base_state, hover_state=None, active_state=None, callback=None):
         """ Adds an interface element to the gui
