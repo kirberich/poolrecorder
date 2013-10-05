@@ -5,6 +5,8 @@ import random
 
 from base_gui import Event
 
+TOUCH_FRAMES = 5
+
 class ElementMixin(object):
     def __init__(self, *args, **kwargs):
         if not hasattr(self, 'height') or not hasattr(self, 'width') or not hasattr(self, 'event_handlers'):
@@ -12,10 +14,14 @@ class ElementMixin(object):
 
         self.elements = {}
         self.hover_elements = {}
+        self.touch_elements = {}
         self.active_elements = {}
+        self.triggered_elements = {}
         self.elements_triggered_through_matrix = set([])
 
         self.event_handlers.append(self.element_handle_event)
+
+        self.last_event_matrix = None
 
         super(ElementMixin, self).__init__(*args, **kwargs)
 
@@ -31,6 +37,8 @@ class ElementMixin(object):
     def element_trigger_event(self, element_id, event):
         if event.event_type == 'mouse_move':
             self.element_hover(element_id)
+        elif event.event_type == 'touch':
+            self.element_touch(element_id)
         elif event.event_type == 'mouse_down':
             self.element_active(element_id)
         elif event.event_type in ['mouse_up', 'click']:
@@ -57,7 +65,12 @@ class ElementMixin(object):
         mask = numpy.zeros_like(event_matrix)
         for element_id, element in self.elements.items():
             mask = self.update_matrix_from_bounding_box(mask, element, 1)
+        if self.last_event_matrix is not None:
+            mask = mask * self.last_event_matrix
+        self.last_event_matrix = event_matrix
+        
         event_matrix = mask * event_matrix
+
 
         elements_to_check = copy.copy(self.elements)
         to_trigger = []
@@ -140,8 +153,12 @@ class ElementMixin(object):
         """
         if element_id in self.hover_elements:
             del self.hover_elements[element_id]
+        if element_id in self.touch_elements:
+            del self.touch_elements[element_id]
         if element_id in self.active_elements:
             del self.active_elements[element_id]
+        if element_id in self.triggered_elements:
+            del self.triggered_elements[element_id]
 
         element_descriptor = self.call_element_method(self.elements[element_id]['base_state'], element_id)
 
@@ -161,6 +178,21 @@ class ElementMixin(object):
         self.call_element_method(self.hover_elements[element_id]['hover_state'], element_id)
         if update:
             self.update()
+
+    def element_touch(self, element_id, update=True, force=False):
+        if not force and element_id in self.triggered_elements:
+            return
+        if not element_id in self.touch_elements:
+            self.touch_elements[element_id] = 1
+        else:
+            self.touch_elements[element_id] += 1
+
+        if self.touch_elements[element_id] > TOUCH_FRAMES:
+            del self.touch_elements[element_id]
+            self.element_active(element_id)
+            self.element_trigger_active_callback(element_id)
+        else:
+            self.element_hover(element_id)
 
     def element_active(self, element_id, update=True, force=False):
         if not force and element_id in self.active_elements:
@@ -189,4 +221,5 @@ class ElementMixin(object):
         self.update()
 
     def element_trigger_active_callback(self, element_id):
+        self.triggered_elements[element_id] = element_id
         self.call_element_method(self.elements[element_id]['callback'])

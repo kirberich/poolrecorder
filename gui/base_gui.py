@@ -9,7 +9,7 @@ from color import Color
 from vector import V
 
 class Event(object):
-    EVENT_TYPES = ['click', 'mouse_down', 'mouse_up', 'mouse_move', 'key_down', 'key_up', 'key_press']
+    EVENT_TYPES = ['click', 'mouse_down', 'mouse_up', 'mouse_move', 'touch', 'key_down', 'key_up', 'key_press']
     def __init__(self, event_type='click', x=None, y=None, button=None, key=None):
         self.event_type = event_type
         self.x = x

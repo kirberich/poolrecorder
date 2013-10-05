@@ -384,7 +384,7 @@ class KinectRecorder(Recorder):
         self.layers = {
             # Low, high, value
             # Actual data starts around 125 (closest to sensor), 100 when not using calibration
-            'hover': (125, 126, 255), 
+            'touch': (125, 126, 255), 
             #(160, 180, 150), 
             #(200, 220, 100), 
             #(240, 255, 0) # Background
@@ -486,34 +486,16 @@ class KinectRecorder(Recorder):
         #frame_array = self.array(frame)
         # Calculate depth layers
         #dilated = numpy.zeros_like(depth)
-        (low, high, value) = self.layers['hover']
+        (low, high, value) = self.layers['touch']
         #    depth_copy = numpy.copy(depth)
         layer = self.threshold(depth, low, high, value=value)
         layer = layer.astype(numpy.uint8)
-        kernel = numpy.ones((5,5), numpy.uint8)
-        layer = cv2.dilate(layer, kernel)
+        kernel = numpy.ones((3,3), numpy.uint8)
         layer = cv2.erode(layer, kernel)
-        self.gui.trigger_event_matrix(layer, event_type='mouse_move')
-            #cv2.erode(dilated, layer, None, 10)
-        #    depth_layers = numpy.add(depth_layers, segment)
+        #layer = cv2.dilate(layer, kernel)
+        #layer = cv2.blur(layer, (11,11))
+        self.gui.trigger_event_matrix(layer, event_type='touch')
         self.buffer_frame(self.array(layer))
-
-        #frame = self.img_from_depth_frame(depth_layers)
-
-        #frame_array = numpy.asarray(frame[:,:])
-
-        #if not self.gray_image:
-        #    self.gray_image = cv.CreateImage(cv.GetSize(frame), frame.depth, 1)
-        #    self.temp_image = cv.CreateImage(cv.GetSize(frame), frame.depth, 1)
-
-        #if self.overlay_video:
-        #    if self.gray_image and self.last_video_frame:
-        #        cv.CvtColor(self.last_video_frame,self.gray_image,cv.CV_BGR2GRAY)
-
-        #    gray_frame_array = self.array(self.gray_image)
-        #    empty_frame_array = numpy.zeros_like(gray_frame_array)
-        #    cv.AddWeighted(self.gray_image, 1, frame, 1, 1, self.temp_image)
-        #    frame_array = self.array(self.temp_image)
 
     def loop(self):
         """ Freenect has its own looping function, so we have to use that. 
