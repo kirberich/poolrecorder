@@ -26,6 +26,7 @@ class Recorder(object):
 
         self.num_frames = num_frames
         self.frames = [None] * self.num_frames
+        self.current_jpg_frame = None
         self.buffer_index = 0
 
         self.keep_running = True
@@ -374,10 +375,10 @@ class KinectRecorder(Recorder):
         self.layers = [
             # Low, high, value
             # Actual data starts around 125 (closest to sensor), 100 when not using calibration
-            (125, 135, 255), 
-            (160, 180, 150), 
-            (200, 220, 100), 
-            (240, 255, 0) # Background
+            (125, 126, 255), 
+            #(160, 180, 150), 
+            #(200, 220, 100), 
+            #(240, 255, 0) # Background
             ]
 
         self.overlay_video = False
@@ -458,14 +459,13 @@ class KinectRecorder(Recorder):
 
     def handle_video_frame(self, dev, data, timestamp):
         self.update_frame_rate()
-        data = data[:, :, ::-1]  # RGB -> BGR
+        #video_frame = numpy.asarray(data)
         video_frame = self.img_from_video_frame(data)
+        frame_array = self.array(video_frame)
         self.last_video_frame = video_frame
+        self.buffer_frame(frame_array)
 
-        # Convert the current frame to jpeg and put it into the buffer
-        self.buffer_frame(data)
-
-        self.debugging_output(data)
+        self.debugging_output(frame_array)
 
     def handle_keys(self, key):
         super(KinectRecorder, self).handle_keys(key)
@@ -473,32 +473,38 @@ class KinectRecorder(Recorder):
             self.overlay_video = not self.overlay_video
 
     def handle_depth_frame(self, dev, data, timestamp):
-	return
         depth = self.pretty_depth(data)
-
+        #frame = self.img_from_depth_frame(depth)
+        #frame_array = self.array(frame)
         # Calculate depth layers
-        depth_layers = numpy.zeros_like(depth)
-        for (low, high, value) in self.layers:
-            depth_copy = numpy.copy(depth)
-            segment = self.threshold(depth_copy, low, high, value=value)
-            depth_layers = numpy.add(depth_layers, segment)
+        #dilated = numpy.zeros_like(depth)
+        for (low, high, value) in self.layers[:1]:
+        #    depth_copy = numpy.copy(depth)
+            layer = self.threshold(depth, low, high, value=value)
+            layer = layer.astype(numpy.uint8)
+            kernel = numpy.ones((5,5), numpy.uint8)
+            layer = cv2.dilate(layer, kernel)
+            layer = cv2.erode(layer, kernel)
+            #cv2.erode(dilated, layer, None, 10)
+        #    depth_layers = numpy.add(depth_layers, segment)
+        #self.buffer_frame(self.array(layer))
 
-        frame = self.img_from_depth_frame(depth_layers)
+        #frame = self.img_from_depth_frame(depth_layers)
 
-        frame_array = numpy.asarray(frame[:,:])
+        #frame_array = numpy.asarray(frame[:,:])
 
-        if not self.gray_image:
-            self.gray_image = cv.CreateImage(cv.GetSize(frame), frame.depth, 1)
-            self.temp_image = cv.CreateImage(cv.GetSize(frame), frame.depth, 1)
+        #if not self.gray_image:
+        #    self.gray_image = cv.CreateImage(cv.GetSize(frame), frame.depth, 1)
+        #    self.temp_image = cv.CreateImage(cv.GetSize(frame), frame.depth, 1)
 
-        if self.overlay_video:
-            if self.gray_image and self.last_video_frame:
-                cv.CvtColor(self.last_video_frame,self.gray_image,cv.CV_BGR2GRAY)
+        #if self.overlay_video:
+        #    if self.gray_image and self.last_video_frame:
+        #        cv.CvtColor(self.last_video_frame,self.gray_image,cv.CV_BGR2GRAY)
 
-            gray_frame_array = self.array(self.gray_image)
-            empty_frame_array = numpy.zeros_like(gray_frame_array)
-            cv.AddWeighted(self.gray_image, 1, frame, 1, 1, self.temp_image)
-            frame_array = self.array(self.temp_image)
+        #    gray_frame_array = self.array(self.gray_image)
+        #    empty_frame_array = numpy.zeros_like(gray_frame_array)
+        #    cv.AddWeighted(self.gray_image, 1, frame, 1, 1, self.temp_image)
+        #    frame_array = self.array(self.temp_image)
 
     def loop(self):
         """ Freenect has its own looping function, so we have to use that. 
@@ -507,8 +513,8 @@ class KinectRecorder(Recorder):
         freenect.runloop(depth=self.handle_depth_frame, video=self.handle_video_frame, body=self.kinect_body_callback)
 
 if __name__ == "__main__":
-    recorder = CVCaptureRecorder(limit_fps=20)
-    #recorder = KinectRecorder(limit_fps=40)
+    #recorder = CVCaptureRecorder(limit_fps=20)
+    recorder = KinectRecorder(limit_fps=40)
     try:
         recorder.loop()
     except KeyboardInterrupt:
