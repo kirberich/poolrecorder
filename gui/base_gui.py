@@ -17,7 +17,7 @@ class Event(object):
         self.button = button
         self.key = key
         if not event_type in Event.EVENT_TYPES:
-            raise Exception('Unsupported Event %s' % event)
+            raise Exception('Unsupported Event type %s' % event_type)
 
     def __unicode__(self):
         return u'Event %s @(%s,%s), button %s, key %s' % (self.event_type, self.x, self.y, self.button, self.key)
