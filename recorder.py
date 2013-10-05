@@ -2,7 +2,6 @@
 
 import cv2, cv
 import numpy
-import math
 import subprocess
 import time
 import freenect
@@ -145,10 +144,6 @@ class Recorder(object):
         t.daemon = True
         t.start()
 
-    def handle_keys(self, key):
-        if key == 27: # exit on ESC
-            self.keep_running = False
-
     def to_grayscale(self, image):
         tmp = cv.CreateImage(cv.GetSize(image), image.depth, 1)
         cv.CvtColor(image, tmp,cv.CV_BGR2GRAY)
@@ -165,6 +160,7 @@ class Recorder(object):
         self.gui.update()
         time.sleep(0.2)
         white_frame = self.to_grayscale(self.capture_frame(as_array=False))
+        height, width = white_frame.shape
 
         self.gui.fill(Color(0, 0, 0))
         self.gui.update()
@@ -235,10 +231,9 @@ class Recorder(object):
 
             if point_found:
                 # Test if the three points are roughly on one line
-                if p*q/(p.abs()*q.abs()) > 0.95:
+                if p*q/(p.abs_sq()) > 0.95:
                     # For now, we will simply assume that the image is roughly centered,
                     # i.e. that the left edge is on the left half of the screen, etc
-                    height, width = white_frame.shape
                     if up and down:
                         if can.x < width/2:
                             border = 'left'
@@ -322,17 +317,12 @@ class Recorder(object):
                     self.keep_running = False
             self.api.events = []
 
-        # Handle key events, if a window is shown
-        #if SHOW_WINDOW:
-        #    key = cv2.waitKey(20)
-        #    self.handle_keys(key)
-
         event = self.gui.process_events()
         if event.key == 'c':
             self.calibrate()
             self.gui.redraw_elements()
         elif event.key == 'p':
-            exit(0)
+            self.keep_running = False
 
     def debugging_output(self, frame):
         if DEBUG:
@@ -371,10 +361,6 @@ class CVCaptureRecorder(Recorder):
 
     def handle_frame(self):
         frame_array = self.capture_frame()
-
-        #small_frame = cv.CreateImage( (self.gui.width, self.gui.height), frame.depth, frame.nChannels)
-        #cv.Resize(frame, small_frame)
-        #self.gui.draw_image(small_frame)
 
         self.buffer_frame(frame_array)
         self.debugging_output(frame_array)

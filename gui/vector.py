@@ -38,7 +38,7 @@ class V(object):
 
 	def abs_sq(self):
 		""" Square of absolute value of vector self """
-		return self.x*self.x + self.y*self.y
+		return abs(self.x*self.x + self.y*self.y)
 
 	def abs(self):
 		return math.sqrt(self.abs_sq())
