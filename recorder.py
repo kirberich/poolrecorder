@@ -340,7 +340,7 @@ class Recorder(object):
         if SHOW_WINDOW:
             cv2.imshow("preview", frame)
 
-    def capture_frame(self):
+    def capture_frame(self, as_array=True):
         raise NotImplementedError()
 
     def handle_frame(self, *args, **kwargs):
@@ -426,7 +426,7 @@ class KinectRecorder(Recorder):
                    video.dtype.itemsize * 3 * video.shape[1])
         return image
 
-    def sync_get_depth_frame(self):
+    def sync_get_depth_frame(self, as_array=False):
         depth, timestamp = freenect.sync_get_depth()
         depth = self.pretty_depth(depth)
         image = cv.CreateImageHeader((depth.shape[1], depth.shape[0]),
@@ -436,7 +436,7 @@ class KinectRecorder(Recorder):
                    depth.dtype.itemsize * depth.shape[1])
         return image
 
-    def sync_get_video_frame(self):
+    def sync_get_video_frame(self, as_array=False):
         video = freenect.sync_get_video()[0]
         video = video[:, :, ::-1]  # RGB -> BGR
         image = cv.CreateImageHeader((video.shape[1], video.shape[0]),
@@ -445,6 +445,9 @@ class KinectRecorder(Recorder):
         cv.SetData(image, video.tostring(),
                    video.dtype.itemsize * 3 * video.shape[1])
         return image
+
+    def capture_frame(self, as_array=True):
+        return self.sync_get_video_frame(as_array=as_array)
 
     def set_led(self, led_state):
         if not self.dev:
