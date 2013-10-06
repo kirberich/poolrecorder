@@ -432,6 +432,8 @@ class KinectRecorder(Recorder):
 
     def sync_get_depth_frame(self, as_array=False):
         depth, timestamp = freenect.sync_get_depth()
+        if as_array:
+            return depth
         depth = self.pretty_depth(depth)
         image = cv.CreateImageHeader((depth.shape[1], depth.shape[0]),
                                      cv.IPL_DEPTH_8U,
@@ -442,6 +444,8 @@ class KinectRecorder(Recorder):
 
     def sync_get_video_frame(self, as_array=False):
         video = freenect.sync_get_video()[0]
+        if as_array:
+            return video
         video = video[:, :, ::-1]  # RGB -> BGR
         image = cv.CreateImageHeader((video.shape[1], video.shape[0]),
                                      cv.IPL_DEPTH_8U,
@@ -464,6 +468,10 @@ class KinectRecorder(Recorder):
             print "no device set!"
             return
         freenect.set_tilt_degs(self.dev, tilt)
+    
+    def handle_custom_event(self, event):
+        if event.key == 'o':
+            self.overlay_video = not self.overlay_video
 
     def kinect_body_callback(self, dev, ctx):
         self.handle_events()
@@ -473,7 +481,14 @@ class KinectRecorder(Recorder):
         if not self.keep_running:
             raise freenect.Kill
 
-    def handle_video_frame(self, dev, data, timestamp):
+    def handle_frame(self):
+        """ Synchronous handling of kinect frames, stupidly slow. """
+        video = self.sync_get_video_frame(as_array=True)
+        self.handle_video_frame(data=video)
+        depth = self.sync_get_depth_frame(as_array=True)
+        self.handle_depth_frame(data=depth)
+
+    def handle_video_frame(self, dev=None, data=None, timestamp=None):
         self.update_frame_rate()
         #video_frame = numpy.asarray(data)
         video_frame = self.img_from_video_frame(data)
@@ -483,11 +498,7 @@ class KinectRecorder(Recorder):
 
         self.debugging_output(frame_array)
 
-    def handle_custom_event(self, event):
-        if event.key == 'o':
-            self.overlay_video = not self.overlay_video
-
-    def handle_depth_frame(self, dev, data, timestamp):
+    def handle_depth_frame(self, dev=None, data=None, timestamp=None):
         depth = self.pretty_depth(data)
         #frame = self.img_from_depth_frame(depth)
         #frame_array = self.array(frame)
@@ -509,7 +520,6 @@ class KinectRecorder(Recorder):
             Put general things that should happen in every frame into the "body" callback.
         """
         freenect.runloop(depth=self.handle_depth_frame, video=self.handle_video_frame, body=self.kinect_body_callback)
-
 if __name__ == "__main__":
     #recorder = CVCaptureRecorder(limit_fps=20)
     recorder = KinectRecorder(limit_fps=40)
