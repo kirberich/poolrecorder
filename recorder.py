@@ -13,6 +13,7 @@ import datetime
 from api import Api
 from gui import Gui, Color
 from gui.vector import V
+import calibration
 
 DEBUG = False
 SHOW_WINDOW = False
@@ -288,7 +289,7 @@ class Recorder(object):
             self.gui.draw_circle((real_mean.x, real_mean.y), 5, stroke_color = colors[border_name])
 
         corners = {}
-        # # Calculate corners from border intersections
+        # Calculate corners from border intersections
         for border1, border2 in [('top', 'left'), ('top', 'right'), ('bottom', 'left'), ('bottom', 'right')]:
             o1 = borders[border1]['real_mean']
             d1 = borders[border1]['direction_mean']
@@ -302,6 +303,9 @@ class Recorder(object):
             corners[border1+"_"+border2] = corner
             self.gui.draw_circle((corner.x, corner.y), 10, Color(255, 0, 255))
         print corners
+
+        # Calculate transformation matrix
+        transformation_matrix = calibration.calibration_transformation_matrix(width, height, corners)
 
         self.gui.update()
 
