@@ -153,21 +153,25 @@ class Recorder(object):
         return image 
 
     def calibrate(self):
-        """ Fill gui with white, capture a frame, fill with black, capture another frame.
-            Substract the images and calculate a threshold, generate a gradient to get the borders.
-            Calculate a transformation matrix that converts from the coordinates on the frame to screen coordinates.
-        """
         print "calibrate"
         self.gui.fill(Color(255, 255, 255))
         self.gui.update()
         time.sleep(0.2)
         white_frame = self.to_grayscale(self.capture_frame(as_array=False))
-        height, width = white_frame.shape
 
         self.gui.fill(Color(0, 0, 0))
         self.gui.update()
         time.sleep(0.2)
         black_frame = self.to_grayscale(self.capture_frame(as_array=False))
+
+        self._calibrate(white_frame, black_frame)
+
+    def _calibrate(self, white_frame, black_frame):
+        """ Fill gui with white, capture a frame, fill with black, capture another frame.
+            Substract the images and calculate a threshold, generate a gradient to get the borders.
+            Calculate a transformation matrix that converts from the coordinates on the frame to screen coordinates.
+        """
+        height, width = white_frame.shape
 
         # Calculate threshold and gradient to end up with an image with just the border of the screen as white pixels
         diff_frame = cv2.subtract(white_frame, black_frame)
@@ -405,6 +409,33 @@ class KinectRecorder(Recorder):
         self.ctx = None
         self.led_state = 0
         self.tilt = 0
+        self.post_video_callbacks = []
+        self.post_depth_callbacks = []
+
+        # Calibration settings
+        self.calibration_state = None
+
+    def calibrate(self):
+        if not self.calibration_state:
+            print "calibrate"
+            self.gui.fill(Color(255, 255, 255))
+            self.gui.update()
+            time.sleep(0.2)
+            self.calibration_state = 'capture_white'
+            self.post_video_callbacks.append(self.calibrate)
+
+        elif self.calibration_state == 'capture_white':
+            self.calibration_white_frame = self.last_video_frame
+            self.gui.fill(Color(0, 0, 0))
+            self.gui.update()
+            time.sleep(0.2)
+            self.calibration_state = 'capture_black'
+            self.post_video_callbacks.append(self.calibrate)
+
+        elif self.calibration_state == 'capture_black':
+            white_frame = self.calibration_white_frame
+            black_frame = self.last_video_frame
+            self._calibrate(white_frame, black_frame)
 
     def threshold(self, depth_map, low, high, value=1):
         depth_map = value * numpy.logical_and(depth_map >= low, depth_map < high)
@@ -498,6 +529,10 @@ class KinectRecorder(Recorder):
 
         self.debugging_output(frame_array)
 
+        for callback in self.post_video_callbacks:
+            callback()
+        self.post_video_callbacks = []
+
     def handle_depth_frame(self, dev=None, data=None, timestamp=None):
         depth = self.pretty_depth(data)
         #frame = self.img_from_depth_frame(depth)
@@ -514,6 +549,10 @@ class KinectRecorder(Recorder):
         #layer = cv2.blur(layer, (11,11))
         self.gui.trigger_event_matrix(layer, event_type='touch')
         self.buffer_frame(self.array(layer))
+
+        for callback in self.post_depth_callbacks:
+            callback()
+        self.post_depth_callbacks = []
 
     def loop(self):
         """ Freenect has its own looping function, so we have to use that. 
