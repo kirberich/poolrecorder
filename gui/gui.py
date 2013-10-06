@@ -112,8 +112,7 @@ class Gui(BaseGUI, PrimitiveMixin, ElementMixin):
             'bounding_box': ((x-radius,y-radius), (radius*2, radius*2))
         }
 
-    def update(self):
+    def redraw(self):
         self.fill(Color(1, 1, 1))
         self.redraw_elements()
 
-        super(Gui, self).update()

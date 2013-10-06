@@ -4,6 +4,7 @@ import copy
 import random
 
 from base_gui import Event
+from color import Color
 
 TOUCH_FRAMES = 5
 
@@ -22,6 +23,7 @@ class ElementMixin(object):
         self.event_handlers.append(self.element_handle_event)
 
         self.last_event_matrix = None
+        self.calibration_matrix = None
 
         super(ElementMixin, self).__init__(*args, **kwargs)
 
@@ -55,7 +57,7 @@ class ElementMixin(object):
         matrix[y1:y2, x1:x2] = value
         return matrix
 
-    def trigger_event_matrix(self, event_matrix, transformation_matrix=None, event_type='click'):
+    def trigger_event_matrix(self, event_matrix, event_type='click'):
         """ For a binary matrix with white pixels representing event triggers,
             trigger events for every element intersecting white pixels in the matrix.
 
@@ -78,15 +80,24 @@ class ElementMixin(object):
             event_points = numpy.transpose(event_matrix.nonzero())
             if not event_points.any():
                 break
-            y, x = random.choice(event_points)
+            raw_y, raw_x = random.choice(event_points)
+            if self.calibration_matrix is not None:
+               transformed = self.calibration_matrix[raw_y][raw_x] 
+               x, y = transformed.x, transformed.y
+               #self.draw_circle((x, y), 3, stroke_color = Color(1,0,0))
+               #self.draw_circle((raw_x, raw_y), 3, stroke_color = Color(1,1,0))
+            else:
+               x, y = raw_x, raw_y
+               return # DEBUGGING, don't do anything if not calibrated
             for element_id, element in elements_to_check.items():
                 if element['descriptor'](x,y):
-                    event_matrix = self.update_matrix_from_bounding_box(event_matrix, element, 1)
+                    print "triggering event, orig coordinates: %s, %s, transformed: %s, %s" % (raw_x, raw_y, x, y)
+                    event_matrix = self.update_matrix_from_bounding_box(event_matrix, element, 0)
                     to_trigger.append(element_id)
                     del elements_to_check[element_id]
                     break
             else:
-                event_matrix[y][x] = 0
+                event_matrix[raw_y][raw_x] = 0
 
         for element_id in to_trigger:
             event = Event(event_type)

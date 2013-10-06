@@ -56,7 +56,7 @@ class Recorder(object):
             [150, 150, 90], 
             {'active':True}
         )
-        callback = self.calibrate
+        callback = lambda: self.log("triggered")#self.calibrate
 
         self.gui.add_element(element_id=2, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
         
@@ -79,6 +79,9 @@ class Recorder(object):
         #self.gui.add_element(element_id=1, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
         
         self.gui.update()
+
+    def log(self, text):
+        print text
 
     def array(self, image):
         return numpy.asarray(image[:,:])
@@ -154,7 +157,7 @@ class Recorder(object):
 
     def calibrate(self):
         print "calibrate"
-        self.gui.fill(Color(255, 255, 255))
+        self.gui.fill(Color(1, 1, 1))
         self.gui.update()
         time.sleep(0.2)
         white_frame = self.to_grayscale(self.capture_frame(as_array=False))
@@ -172,19 +175,18 @@ class Recorder(object):
             Calculate a transformation matrix that converts from the coordinates on the frame to screen coordinates.
         """
         height, width = white_frame.shape
-
         # Calculate threshold and gradient to end up with an image with just the border of the screen as white pixels
         diff_frame = cv2.subtract(white_frame, black_frame)
         threshold_frame = cv2.threshold(diff_frame, 40, 255, cv2.THRESH_BINARY)[1]
         gradient_frame = cv2.Laplacian(threshold_frame, cv2.CV_64F)
-
+        gradient_frame = self.threshold(gradient_frame, 255, 256, 255.0) 
         cv2.imwrite("white.jpg", white_frame)
         cv2.imwrite("black.jpg", black_frame)
         cv2.imwrite("diff.jpg", diff_frame)
         cv2.imwrite("threshold.jpg", threshold_frame)
         cv2.imwrite("gradient.jpg", gradient_frame)
 
-        self.gui.fill(Color(255, 255, 255))
+        self.gui.fill(Color(1, 1, 1))
         self.gui.update()
 
         # Get list of all white pixels in the gradient as [(y,x), (y,x), ...]
@@ -237,7 +239,7 @@ class Recorder(object):
 
             if point_found:
                 # Test if the three points are roughly on one line
-                if p*q/(p.abs_sq()) > 0.95:
+                if p*q/(p.abs()*q.abs()) > 0.95:
                     # For now, we will simply assume that the image is roughly centered,
                     # i.e. that the left edge is on the left half of the screen, etc
                     if up and down:
@@ -309,7 +311,20 @@ class Recorder(object):
         print corners
 
         # Calculate transformation matrix
-        transformation_matrix = calibration.calibration_transformation_matrix(width, height, corners)
+        self.gui.calibration_matrix = calibration.calibration_transformation_matrix(width, height, self.gui.width, self.gui.height, corners)
+        m = self.gui.calibration_matrix
+        b = corners['top_left']
+        p = m[b.y+10][b.x+10]
+        self.gui.draw_circle((p.x, p.y), 3, stroke_color = Color(0,1,0))
+        b = corners['top_right']
+        p = m[b.y+10][b.x-10]
+        self.gui.draw_circle((p.x, p.y), 3, stroke_color = Color(0,1,0))
+        b = corners['bottom_left']
+        p = m[b.y-10][b.x+10]
+        self.gui.draw_circle((p.x, p.y), 3, stroke_color = Color(0,1,0))
+        b = corners['bottom_right']
+        p = m[b.y-10][b.x-10]
+        self.gui.draw_circle((p.x, p.y), 3, stroke_color = Color(0,1,0))
 
         self.gui.update()
 
@@ -392,7 +407,7 @@ class KinectRecorder(Recorder):
         self.layers = {
             # Low, high, value
             # Actual data starts around 125 (closest to sensor), 100 when not using calibration
-            'touch': (125, 126, 255), 
+            'touch': (175, 176, 255), 
             #(160, 180, 150), 
             #(200, 220, 100), 
             #(240, 255, 0) # Background
@@ -418,23 +433,28 @@ class KinectRecorder(Recorder):
     def calibrate(self):
         if not self.calibration_state:
             print "calibrate"
-            self.gui.fill(Color(255, 255, 255))
+            self.gui.fill(Color(1, 1, 1))
             self.gui.update()
             time.sleep(0.2)
+            self.calibration_state = 'prepare'
+            self.post_video_callbacks.append(self.calibrate)
+       
+        elif self.calibration_state == 'prepare': 
             self.calibration_state = 'capture_white'
             self.post_video_callbacks.append(self.calibrate)
-
+ 
         elif self.calibration_state == 'capture_white':
-            self.calibration_white_frame = self.last_video_frame
+            self.calibration_white_frame = self.to_grayscale(self.last_video_frame)
             self.gui.fill(Color(0, 0, 0))
             self.gui.update()
             time.sleep(0.2)
             self.calibration_state = 'capture_black'
             self.post_video_callbacks.append(self.calibrate)
-
+ 
         elif self.calibration_state == 'capture_black':
+            self.calibration_state = None
             white_frame = self.calibration_white_frame
-            black_frame = self.last_video_frame
+            black_frame = self.to_grayscale(self.last_video_frame)
             self._calibrate(white_frame, black_frame)
 
     def threshold(self, depth_map, low, high, value=1):
@@ -529,9 +549,10 @@ class KinectRecorder(Recorder):
 
         self.debugging_output(frame_array)
 
-        for callback in self.post_video_callbacks:
-            callback()
+        callbacks = copy.copy(self.post_video_callbacks)
         self.post_video_callbacks = []
+        for callback in callbacks:
+            callback()
 
     def handle_depth_frame(self, dev=None, data=None, timestamp=None):
         depth = self.pretty_depth(data)
