@@ -14,12 +14,13 @@ from api import Api
 from gui import Gui, Color
 from gui.vector import V
 import calibration
+import settings
 
-DEBUG = False
-SHOW_WINDOW = False
+DEBUG = settings.DEBUG
+SHOW_WINDOW = settings.SHOW_WINDOW
 
 class Recorder(object):
-    def __init__(self, num_frames=30*25, limit_fps=None):
+    def __init__(self, num_frames=settings.BUFFER_LENGTH, limit_fps=None):
         if SHOW_WINDOW:
             cv2.namedWindow("preview")
 
@@ -38,7 +39,10 @@ class Recorder(object):
         self.api = Api(self)
         self.api_lock = threading.Lock()
 
-        self.gui = Gui(width=640, height=480)
+        if settings.UI_RESOLUTION:
+            self.gui = Gui(width=settings.UI_RESOLUTION[0], height=settings.UI_RESOLUTION[1])
+        else:
+            self.gui = Gui()
 
         # Test recording button
         base_state = (
@@ -175,7 +179,7 @@ class Recorder(object):
 
         # Calculate threshold and gradient to end up with an image with just the border of the screen as white pixels
         diff_frame = cv2.subtract(white_frame, black_frame)
-        threshold_frame = cv2.threshold(diff_frame, 40, 255, cv2.THRESH_BINARY)[1]
+        threshold_frame = cv2.threshold(diff_frame, settings.CALIBRATION_THRESHOLD, 255, cv2.THRESH_BINARY)[1]
         gradient_frame = cv2.Laplacian(threshold_frame, cv2.CV_64F)
 
         cv2.imwrite("white.jpg", white_frame)
@@ -358,7 +362,7 @@ class Recorder(object):
         raise NotImplementedError()
 
 class CVCaptureRecorder(Recorder):
-    def __init__(self, num_frames=30*25, limit_fps=None):
+    def __init__(self, num_frames=settings.BUFFER_LENGTH, limit_fps=None):
         super(CVCaptureRecorder, self).__init__(num_frames, limit_fps)
         self.capture = cv.CaptureFromCAM(0)
         cv.SetCaptureProperty(self.capture, cv.CV_CAP_PROP_FRAME_WIDTH, 640)
@@ -385,20 +389,13 @@ class CVCaptureRecorder(Recorder):
 
 
 class KinectRecorder(Recorder):
-    def __init__(self, num_frames=30*25, limit_fps=None):
+    def __init__(self, num_frames=settings.BUFFER_LENGTH, limit_fps=None):
         super(KinectRecorder, self).__init__(num_frames, limit_fps)
 
         # Kinect depth layers
-        self.layers = {
-            # Low, high, value
-            # Actual data starts around 125 (closest to sensor), 100 when not using calibration
-            'touch': (125, 126, 255), 
-            #(160, 180, 150), 
-            #(200, 220, 100), 
-            #(240, 255, 0) # Background
-            }
+        self.layers = settings.TOUCH_LAYERS
 
-        self.overlay_video = False
+        self.overlay_video = settings.OVERLAY_VIDEO
 
         # Helper images to display depth overlay over video feed
         self.gray_image = None
@@ -425,7 +422,7 @@ class KinectRecorder(Recorder):
             self.post_video_callbacks.append(self.calibrate)
 
         elif self.calibration_state == 'capture_white':
-            self.calibration_white_frame = self.last_video_frame
+            self.calibration_white_frame = self.to_grayscale(self.last_video_frame)
             self.gui.fill(Color(0, 0, 0))
             self.gui.update()
             time.sleep(0.2)
@@ -535,18 +532,12 @@ class KinectRecorder(Recorder):
 
     def handle_depth_frame(self, dev=None, data=None, timestamp=None):
         depth = self.pretty_depth(data)
-        #frame = self.img_from_depth_frame(depth)
-        #frame_array = self.array(frame)
-        # Calculate depth layers
-        #dilated = numpy.zeros_like(depth)
+
         (low, high, value) = self.layers['touch']
-        #    depth_copy = numpy.copy(depth)
         layer = self.threshold(depth, low, high, value=value)
         layer = layer.astype(numpy.uint8)
         kernel = numpy.ones((3,3), numpy.uint8)
         layer = cv2.erode(layer, kernel)
-        #layer = cv2.dilate(layer, kernel)
-        #layer = cv2.blur(layer, (11,11))
         self.gui.trigger_event_matrix(layer, event_type='touch')
         self.buffer_frame(self.array(layer))
 
@@ -560,8 +551,13 @@ class KinectRecorder(Recorder):
         """
         freenect.runloop(depth=self.handle_depth_frame, video=self.handle_video_frame, body=self.kinect_body_callback)
 if __name__ == "__main__":
-    #recorder = CVCaptureRecorder(limit_fps=20)
-    recorder = KinectRecorder(limit_fps=40)
+    if settings.RECORDER == 'cv':
+        recorder = CVCaptureRecorder(limit_fps=settings.LIMIT_FPS)
+    elif settings.RECORDER == 'kinect':
+        recorder = KinectRecorder(limit_fps=settings.LIMIT_FPS)
+    else:
+        raise Exception("Unknown value %s for settings 'recorder'" % settings.RECORDER)
+
     try:
         recorder.loop()
     except KeyboardInterrupt:

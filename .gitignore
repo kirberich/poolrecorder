@@ -3,3 +3,4 @@
 *.avi
 *.jpg
 *.png
+/custom_settings.py

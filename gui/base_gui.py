@@ -7,6 +7,7 @@ from pygame import locals as pygame_locals
 
 from color import Color
 from vector import V
+import settings
 
 class Event(object):
     EVENT_TYPES = ['click', 'mouse_down', 'mouse_up', 'mouse_move', 'touch', 'key_down', 'key_up', 'key_press']
@@ -45,7 +46,10 @@ class BaseGUI(object):
         self.height = height
         self.mouse_pos = V(0,0)
 
-        screen = pygame.display.set_mode((width, height))#, pygame_locals.FULLSCREEN)
+        if settings.UI_FULLSCREEN: 
+            screen = pygame.display.set_mode((width, height), pygame_locals.FULLSCREEN)
+        else:
+            screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption(caption)
         self.screen = screen
         self.clock = pygame.time.Clock()
