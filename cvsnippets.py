@@ -13,3 +13,11 @@ raise Exception("Oi, don't run this, it's just random bits of cv code.")
 #for point in cornerMem:
 #    center = int(point[0]), int(point[1])
 #    cv.Circle(frame, (center), 2, (0,255,255))
+
+## Calibration stuff
+#frame = self.img_from_depth_frame(depth)
+#frame_array = self.array(frame)
+# Calculate depth layers
+#dilated = numpy.zeros_like(depth)
+#layer = cv2.dilate(layer, kernel)
+#layer = cv2.blur(layer, (11,11))
