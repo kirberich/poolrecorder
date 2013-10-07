@@ -90,6 +90,10 @@ class Recorder(object):
     def array(self, image):
         return numpy.asarray(image[:,:])
 
+    def threshold(self, grayscale_array, low, high, value=1):
+        grayscale_array = value * numpy.logical_and(grayscale_array >= low, grayscale_array < high)
+        return grayscale_array
+
     def update_frame_rate(self):
         # FIXME: save some kind of average for the fps
         self.frame_diff = time.time() - self.last_frame
@@ -453,10 +457,6 @@ class KinectRecorder(Recorder):
             white_frame = self.calibration_white_frame
             black_frame = self.to_grayscale(self.last_video_frame)
             self._calibrate(white_frame, black_frame)
-
-    def threshold(self, depth_map, low, high, value=1):
-        depth_map = value * numpy.logical_and(depth_map >= low, depth_map < high)
-        return depth_map
 
     def pretty_depth(self, depth):
         numpy.clip(depth, 0, 2**10 - 1, depth)
