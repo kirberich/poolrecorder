@@ -63,6 +63,15 @@ class ElementMixin(object):
 
             if transformation_matrix is passed, event_matrix is transformed before being processed.
         """
+        # Transform event_matrix
+        if self.calibration_matrix is not None:
+            event_matrix_transformed = numpy.zeros((self.height, self.width))
+            raw_points = numpy.transpose(event_matrix.nonzero())
+            for point in raw_points:
+                transformed = self.calibration_matrix[point[0]][point[1]]
+                event_matrix_transformed[transformed.y][transformed.x] = 1
+        event_matrix = event_matrix_transformed
+
         # First set everything in event_matrix to zero that doesn't match an element's bounding box
         mask = numpy.zeros_like(event_matrix)
         for element_id, element in self.elements.items():
@@ -80,24 +89,24 @@ class ElementMixin(object):
             event_points = numpy.transpose(event_matrix.nonzero())
             if not event_points.any():
                 break
-            raw_y, raw_x = random.choice(event_points)
-            if self.calibration_matrix is not None:
-               transformed = self.calibration_matrix[raw_y][raw_x] 
-               x, y = transformed.x, transformed.y
-               #self.draw_circle((x, y), 3, stroke_color = Color(1,0,0))
-               #self.draw_circle((raw_x, raw_y), 3, stroke_color = Color(1,1,0))
-            else:
-               x, y = raw_x, raw_y
-               return # DEBUGGING, don't do anything if not calibrated
+            y, x = random.choice(event_points)
+            # if self.calibration_matrix is not None:
+            #    transformed = self.calibration_matrix[raw_y][raw_x] 
+            #    x, y = transformed.x, transformed.y
+            #    #self.draw_circle((x, y), 3, stroke_color = Color(1,0,0))
+            #    #self.draw_circle((raw_x, raw_y), 3, stroke_color = Color(1,1,0))
+            # else:
+            #    x, y = raw_x, raw_y
+            #   return # DEBUGGING, don't do anything if not calibrated
             for element_id, element in elements_to_check.items():
                 if element['descriptor'](x,y):
-                    print "triggering event, orig coordinates: %s, %s, transformed: %s, %s" % (raw_x, raw_y, x, y)
+                    #print "triggering event, orig coordinates: %s, %s, transformed: %s, %s" % (raw_x, raw_y, x, y)
                     event_matrix = self.update_matrix_from_bounding_box(event_matrix, element, 0)
                     to_trigger.append(element_id)
                     del elements_to_check[element_id]
                     break
             else:
-                event_matrix[raw_y][raw_x] = 0
+                event_matrix[y][x] = 0
 
         for element_id in to_trigger:
             event = Event(event_type)
