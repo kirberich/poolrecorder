@@ -15,7 +15,7 @@ UI_RESOLUTION = None # None for display resolution or tuple (x,y)
 TOUCH_LAYERS = {
 	# Low, high, value
 	# Actual data starts around 125 (closest to sensor), 100 when not using calibration
-	'touch': (125, 126, 255), 
+	'touch': (175, 176, 255), 
 	#(160, 180, 150), 
 	#(200, 220, 100), 
 	#(240, 255, 0) # Background
