@@ -39,7 +39,7 @@ class Recorder(object):
         self.api = Api(self)
         self.api_lock = threading.Lock()
 
-        if settings.SHOW_WINDOW:
+        if settings.UI_ENABLED:
             if settings.UI_RESOLUTION:
                 self.gui = Gui(width=settings.UI_RESOLUTION[0], height=settings.UI_RESOLUTION[1])
             else:
@@ -84,6 +84,8 @@ class Recorder(object):
             #self.gui.add_element(element_id=1, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
         
             self.gui.update()
+        else:
+            self.gui = None
 
     def log(self, text):
         print text
@@ -130,7 +132,8 @@ class Recorder(object):
             self.update_frame_rate()
             self.handle_events()
             self.handle_frame()
-            self.gui.update()
+            if self.gui:
+                self.gui.update()
 
     def _save_buffer_to_video(self):
         # Fixme: make shit configurable
@@ -352,7 +355,7 @@ class Recorder(object):
                     self.keep_running = False
             self.api.events = []
 
-        if settings.SHOW_WINDOW:
+        if self.gui:
             event = self.gui.process_events()
             if event.key == 'c':
                 self.calibrate()

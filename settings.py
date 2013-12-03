@@ -8,6 +8,7 @@ LIMIT_FPS = 20
 BUFFER_LENGTH = 30*25
 
 # UI 
+UI_ENABLED = False
 UI_FULLSCREEN = True
 UI_RESOLUTION = None # None for display resolution or tuple (x,y)
 
