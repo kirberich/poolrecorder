@@ -75,7 +75,7 @@ class RecorderHandler(http.Request, object):
         if not candidates:
             return self.not_found()
 
-        file_name = candidates[0]
+        file_name = candidates[-1]
         f = open(file_name)
         content = f.read()
 
