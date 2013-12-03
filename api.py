@@ -1,8 +1,12 @@
+import threading
+import os
+import datetime
+
 from twisted.web import http
 from twisted.web.http import HTTPChannel
 from twisted.internet import reactor, defer
-import threading
-import os
+
+from urlparse import urlparse, parse_qs
 
 
 class RecorderHandler(http.Request, object):
@@ -29,10 +33,10 @@ class RecorderHandler(http.Request, object):
 
     def not_found(self, message=None):
         self.setResponseCode(404, message)
-	self.setHeader("Content-Type", "image/gif")
-	f = open("404.gif", "r")
-	content = f.read()
-	self.write(content)
+        self.setHeader("Content-Type", "image/gif")
+        f = open("404.gif", "r")
+        content = f.read()
+        self.write(content)
         self.finish()
 
     def simple_render(self, content, content_type="text/plain"):
@@ -53,8 +57,13 @@ class RecorderHandler(http.Request, object):
         self.setHeader('Content-Type', "multipart/x-mixed-replace;boundary=%s" % boundary)
 
         while True:
-            content = self.get_frame()
-            self.write("Content-Type: image/jpg\n")
+            if self.api.video_locked: 
+                self.write("Content-Type image/gif\n")
+                f = open("shoo.gif", "r")
+                content = f.read()
+            else:
+                content = self.get_frame()
+                self.write("Content-Type: image/jpg\n")
             self.write("Content-Length: %s\n\n" % (len(content)))
             self.write(content)
             self.write("--%s\n" % (boundary))
@@ -110,10 +119,38 @@ class RecorderHandler(http.Request, object):
                 return self.serve_stream_container()
             elif command == "echo":
                 return self.simple_render(args[0])
+            elif command == "videos":
+                pass
+            elif command == "lock":
+                self.lock_video()
+                return self.simple_render("locked")
+            elif command == "unlock":
+                if self.unlock_video():
+                    return self.simple_render("Unlocked.")
+                else:
+                    return self.simple_render("Wrong password.")
         except Exception, e:
             return self.simple_render(e.message)
 
         return self.not_found()
+
+    def lock_video(self):
+        seconds = int(self.args['seconds'][0]) if 'seconds' in self.args else None
+        password = self.args['password'][0] if 'password' in self.args else None
+        self.api.video_locked = True
+        self.api.unlock_at = datetime.datetime.now() + datetime.timedelta(seconds=seconds) if seconds else None
+        self.api.lock_password = password
+        if seconds:
+            d = defer.Deferred()
+            reactor.callLater(seconds, self.unlock_video, None)
+            return d
+
+    def unlock_video(self, *args, **kwargs):
+        password = self.args['password'][0] if 'password' in self.args else None
+        if not self.api.lock_password or password == self.api.lock_password:
+            self.api.video_locked = False
+            return True
+        return False
 
 
 class RecorderHandlerFactory(object):
@@ -138,6 +175,9 @@ class Api:
 
         self.recorder = recorder
         self.events = []
+        self.video_locked = False
+        self.lock_password = None
+        self.unlock_at = None
 
         reactor.listenTCP(8080, StreamFactory())
         t = threading.Thread(target=reactor.run)

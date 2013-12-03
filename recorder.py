@@ -405,6 +405,8 @@ class CVCaptureRecorder(Recorder):
         return frame_array
 
     def handle_frame(self):
+        if self.api.video_locked:
+            return
         frame_array = self.capture_frame()
 
         self.buffer_frame(frame_array)
