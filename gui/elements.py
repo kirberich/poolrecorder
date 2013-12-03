@@ -64,6 +64,7 @@ class ElementMixin(object):
             if transformation_matrix is passed, event_matrix is transformed before being processed.
         """
         # Transform event_matrix
+        event_matrix_transformed = numpy.zeros((self.height, self.width))
         if self.calibration_matrix is not None:
             event_matrix_transformed = numpy.zeros((self.height, self.width))
             raw_points = numpy.transpose(event_matrix.nonzero())

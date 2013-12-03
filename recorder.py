@@ -39,50 +39,51 @@ class Recorder(object):
         self.api = Api(self)
         self.api_lock = threading.Lock()
 
-        if settings.UI_RESOLUTION:
-            self.gui = Gui(width=settings.UI_RESOLUTION[0], height=settings.UI_RESOLUTION[1])
-        else:
-            self.gui = Gui()
+        if settings.SHOW_WINDOW:
+            if settings.UI_RESOLUTION:
+                self.gui = Gui(width=settings.UI_RESOLUTION[0], height=settings.UI_RESOLUTION[1])
+            else:
+                self.gui = Gui()
 
-        # Test recording button
-        base_state = (
-            self.gui.recording_button, 
-            [150, 150, 90], 
-            {}
-        )
-        hover_state = (
-            self.gui.recording_button, 
-            [150, 150, 90], 
-            {'highlight':True}
-        )
-        active_state = (
-            self.gui.recording_button, 
-            [150, 150, 90], 
-            {'active':True}
-        )
-        callback = lambda: self.log("triggered")#self.calibrate
+            # Test recording button
+            base_state = (
+                self.gui.recording_button, 
+                [150, 150, 90], 
+                {}
+            )
+            hover_state = (
+                self.gui.recording_button, 
+                [150, 150, 90], 
+                {'highlight':True}
+            )
+            active_state = (
+                self.gui.recording_button, 
+                [150, 150, 90], 
+                {'active':True}
+            )
+            callback = lambda: self.log("triggered")#self.calibrate
 
-        self.gui.add_element(element_id=2, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
+            self.gui.add_element(element_id=2, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
         
-        base_state = (
-            self.gui.button, 
-            [100, 100, 200, 30, 'Yeah buttons Baby'], 
-            {}
-        )
-        hover_state = (
-            self.gui.button, 
-            [98, 98, 204, 34, 'Yeah buttons Baby'], 
-            {'fill_color': Color(0.95, 0.95, 0.95), 'bold':True}
-        )
-        active_state = (
-            self.gui.button, 
-            [98, 98, 204, 34, 'Yeah buttons Baby'], 
-            {'fill_color': Color(0.9, 0.9, 0.9), 'bold': True}
-        )
-        callback = self.calibrate
-        #self.gui.add_element(element_id=1, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
+            base_state = (
+                self.gui.button, 
+                [100, 100, 200, 30, 'Yeah buttons Baby'], 
+                {}
+            )
+            hover_state = (
+                self.gui.button, 
+                [98, 98, 204, 34, 'Yeah buttons Baby'], 
+               {'fill_color': Color(0.95, 0.95, 0.95), 'bold':True}
+            )
+            active_state = (
+                self.gui.button, 
+                [98, 98, 204, 34, 'Yeah buttons Baby'], 
+                {'fill_color': Color(0.9, 0.9, 0.9), 'bold': True}
+            )
+            callback = self.calibrate
+            #self.gui.add_element(element_id=1, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
         
-        self.gui.update()
+            self.gui.update()
 
     def log(self, text):
         print text
@@ -114,7 +115,6 @@ class Recorder(object):
         (retval, jpg_frame) = cv2.imencode(".jpg", frame, (cv.CV_IMWRITE_JPEG_QUALITY, 50))
         jpg_frame = jpg_frame.tostring()
         self.current_jpg_frame = jpg_frame
-
         self.frames[self.buffer_index] = jpg_frame
         if self.buffer_index >= self.num_frames - 1:
            self.buffer_index = 0
@@ -352,18 +352,19 @@ class Recorder(object):
                     self.keep_running = False
             self.api.events = []
 
-        event = self.gui.process_events()
-        if event.key == 'c':
-            self.calibrate()
-            self.gui.redraw_elements()
-        elif event.key == 'p':
-            self.keep_running = False
-        elif event.key == 'f':
-            matrix = numpy.zeros((640, 480))
-            matrix[150:160, 150:160] = 1
-            self.gui.trigger_event_matrix(matrix, event_type="mouse_move")
-        else:
-            self.handle_custom_event(event)
+        if settings.SHOW_WINDOW:
+            event = self.gui.process_events()
+            if event.key == 'c':
+                self.calibrate()
+                self.gui.redraw_elements()
+            elif event.key == 'p':
+                self.keep_running = False
+            elif event.key == 'f':
+                matrix = numpy.zeros((640, 480))
+                matrix[150:160, 150:160] = 1
+                self.gui.trigger_event_matrix(matrix, event_type="mouse_move")
+            else:
+                self.handle_custom_event(event)
 
     def debugging_output(self, frame):
         if DEBUG:
@@ -542,7 +543,8 @@ class KinectRecorder(Recorder):
         video_frame = self.img_from_video_frame(data)
         frame_array = self.array(video_frame)
         self.last_video_frame = video_frame
-        #self.buffer_frame(frame_array)
+        if frame_array.any():
+            self.buffer_frame(frame_array)
 
         self.debugging_output(frame_array)
 
@@ -552,6 +554,7 @@ class KinectRecorder(Recorder):
             callback()
 
     def handle_depth_frame(self, dev=None, data=None, timestamp=None):
+        return
         depth = self.pretty_depth(data)
 
         (low, high, value) = self.layers['touch']

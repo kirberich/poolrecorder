@@ -1,7 +1,11 @@
 import pygame
 import cairo
 import numpy
-import Image
+
+try:
+    from PIL import Image	
+except ImportError:
+    import Image
 
 from pygame import locals as pygame_locals
 
