@@ -548,7 +548,7 @@ class KinectRecorder(Recorder):
         video_frame = self.img_from_video_frame(data)
         frame_array = self.array(video_frame)
         self.last_video_frame = video_frame
-        if frame_array.any():
+        if frame_array.any() and not self.api.video_locked:
             self.buffer_frame(frame_array)
 
         self.debugging_output(frame_array)
