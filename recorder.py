@@ -13,6 +13,7 @@ import datetime
 from api import Api
 from gui import Gui, Color
 from gui.vector import V
+from motion import MotionDetector
 import calibration
 import settings
 
@@ -38,6 +39,8 @@ class Recorder(object):
 
         self.api = Api(self)
         self.api_lock = threading.Lock()
+
+        self.motion_detector = MotionDetector()
 
         if settings.UI_ENABLED:
             if settings.UI_RESOLUTION:
@@ -405,12 +408,14 @@ class CVCaptureRecorder(Recorder):
         return frame_array
 
     def handle_frame(self):
-        if self.api.video_locked:
-            return
-        frame_array = self.capture_frame()
+        frame = self.capture_frame(as_array=False)
+        frame_array = numpy.asarray(frame[:,:])
 
-        self.buffer_frame(frame_array)
+        self.motion_detector.update(frame)
         self.debugging_output(frame_array)
+
+        if not self.api.video_locked:
+            self.buffer_frame(frame_array)
 
 
 class KinectRecorder(Recorder):
@@ -551,6 +556,7 @@ class KinectRecorder(Recorder):
         if frame_array.any() and not self.api.video_locked:
             self.buffer_frame(frame_array)
 
+        self.motion_detector.update(frame)
         self.debugging_output(frame_array)
 
         callbacks = copy.copy(self.post_video_callbacks)
