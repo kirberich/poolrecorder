@@ -12,6 +12,11 @@ UI_ENABLED = False
 UI_FULLSCREEN = True
 UI_RESOLUTION = None # None for display resolution or tuple (x,y)
 
+# Motion detection
+MOTION_THRESHOLD = 2
+MOTION_EVENT_GAP = 1
+MOTION_TIMEOUT = 30
+
 # Kinect
 TOUCH_LAYERS = {
 	# Low, high, value

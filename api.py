@@ -129,6 +129,11 @@ class RecorderHandler(http.Request, object):
                     return self.simple_render("Unlocked.")
                 else:
                     return self.simple_render("Wrong password.")
+            elif command == "active":
+                if self.api.recorder.motion_detector.recent_motion():
+                    return self.simple_render("true")
+                else:
+                    return self.simple_render("false")
         except Exception, e:
             return self.simple_render(e.message)
 
