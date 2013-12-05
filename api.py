@@ -67,7 +67,7 @@ class RecorderHandler(http.Request, object):
             self.write("Content-Length: %s\n\n" % (len(content)))
             self.write(content)
             self.write("--%s\n" % (boundary))
-            yield self.wait(0.05)
+            yield self.wait(3 if self.api.video_locked else 0.05)
 
     def serve_stream_container(self):
         headers = [("content-type", "text/html")]
