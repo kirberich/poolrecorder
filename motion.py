@@ -21,7 +21,7 @@ class MotionDetector(object):
 		self.min_sec_between_events = min_sec_between_events
 		self.min_time_between_events = datetime.timedelta(seconds=min_sec_between_events)
 		self.timeout_seconds = timeout_seconds
-		self.timeout = datetime.timedelta(timeout_seconds)
+		self.timeout = datetime.timedelta(seconds=timeout_seconds)
 		self.threshold = threshold
 		self.motion_events = []
 		self.motion_avg = None
@@ -44,6 +44,7 @@ class MotionDetector(object):
 			self.running_average_converted = cv.CreateImage(size, frame.depth, 3)
 			self._smoothed_frame = cv.CreateImage(size, frame.depth, 3)
 			self.motion_image = cv.CreateImage(size, frame.depth, 3)
+			self.grey_image = cv.CreateImage(size, frame.depth, 1)
 			return
 
 		cv.Smooth(frame, self._smoothed_frame, cv.CV_GAUSSIAN, 9, 0)
@@ -52,7 +53,9 @@ class MotionDetector(object):
 		cv.RunningAvg(self._smoothed_frame, self.running_average, 0.5, None)
 		cv.ConvertScale(self.running_average, self.running_average_converted)
 
-		motion_avg = float(cv.Sum(self.motion_image)[0])/(size[0]*size[1]) 
+		#motion_avg = float(cv.Sum(self.motion_image)[0])/(size[0]*size[1]) 
+		cv.CvtColor(self.motion_image, self.grey_image, cv.CV_BGR2GRAY)
+		motion_avg = cv.MinMaxLoc(self.grey_image)[1]
 		if motion_avg > self.threshold and not self.motion_detected and self.should_start_new_event():
 			self.motion_events.append(MotionEvent())
 			self.motion_detected = True
@@ -63,7 +66,6 @@ class MotionDetector(object):
 			self.motion_detected = False
 
 		self.motion_avg = motion_avg
-		print self.last_event().ago()
 
 	def recent_motion(self):
 		last_event = self.last_event()

@@ -556,7 +556,7 @@ class KinectRecorder(Recorder):
         if frame_array.any() and not self.api.video_locked:
             self.buffer_frame(frame_array)
 
-        self.motion_detector.update(frame)
+        self.motion_detector.update(video_frame)
         self.debugging_output(frame_array)
 
         callbacks = copy.copy(self.post_video_callbacks)
@@ -573,8 +573,8 @@ class KinectRecorder(Recorder):
         layer = layer.astype(numpy.uint8)
         kernel = numpy.ones((3,3), numpy.uint8)
         layer = cv2.erode(layer, kernel)
-        self.gui.trigger_event_matrix(layer, event_type='touch')
-        self.buffer_frame(self.array(layer))
+        #self.gui.trigger_event_matrix(layer, event_type='touch')
+        self.buffer_frame(self.array(depth))
 
         for callback in self.post_depth_callbacks:
             callback()

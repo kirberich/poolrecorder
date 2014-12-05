@@ -133,7 +133,7 @@ class RecorderHandler(http.Request, object):
                 if self.api.recorder.motion_detector.recent_motion():
                     return self.simple_render("true")
                 else:
-                    return self.simple_render("false")
+                    return self.simple_render(str(self.api.recorder.motion_detector.last_event().ago()))
         except Exception, e:
             return self.simple_render(e.message)
 
