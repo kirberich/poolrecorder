@@ -9,6 +9,7 @@ import random
 import threading
 import copy
 import datetime
+import serial
 
 from api import Api
 from gui import Gui, Color
@@ -42,6 +43,11 @@ class Recorder(object):
 
         self.motion_detector = MotionDetector()
 
+        self.ser = serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
+        self.encoding_subprocesses = []
+        self.last_serial_command = None
+        self.encoding_started = datetime.datetime.now()
+
         if settings.UI_ENABLED:
             if settings.UI_RESOLUTION:
                 self.gui = Gui(width=settings.UI_RESOLUTION[0], height=settings.UI_RESOLUTION[1])
@@ -50,45 +56,55 @@ class Recorder(object):
 
             # Test recording button
             base_state = (
-                self.gui.recording_button, 
-                [150, 150, 90], 
+                self.gui.recording_button,
+                [150, 150, 90],
                 {}
             )
             hover_state = (
-                self.gui.recording_button, 
-                [150, 150, 90], 
+                self.gui.recording_button,
+                [150, 150, 90],
                 {'highlight':True}
             )
             active_state = (
-                self.gui.recording_button, 
-                [150, 150, 90], 
+                self.gui.recording_button,
+                [150, 150, 90],
                 {'active':True}
             )
             callback = lambda: self.log("triggered")#self.calibrate
 
             self.gui.add_element(element_id=2, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
-        
+
             base_state = (
-                self.gui.button, 
-                [100, 100, 200, 30, 'Yeah buttons Baby'], 
+                self.gui.button,
+                [100, 100, 200, 30, 'Yeah buttons Baby'],
                 {}
             )
             hover_state = (
-                self.gui.button, 
-                [98, 98, 204, 34, 'Yeah buttons Baby'], 
+                self.gui.button,
+                [98, 98, 204, 34, 'Yeah buttons Baby'],
                {'fill_color': Color(0.95, 0.95, 0.95), 'bold':True}
             )
             active_state = (
-                self.gui.button, 
-                [98, 98, 204, 34, 'Yeah buttons Baby'], 
+                self.gui.button,
+                [98, 98, 204, 34, 'Yeah buttons Baby'],
                 {'fill_color': Color(0.9, 0.9, 0.9), 'bold': True}
             )
             callback = self.calibrate
             #self.gui.add_element(element_id=1, base_state=base_state, hover_state=hover_state, active_state=active_state, callback=callback)
-        
+
             self.gui.update()
         else:
             self.gui = None
+
+    def start_encoding_animation(self):
+        self.encoding_started = datetime.datetime.now()
+        self.last_serial_command = 'f'
+        self.ser.write('f')
+
+    def stop_encoding_animation(self):
+        if self.last_serial_command != 's':
+            self.last_serial_command = 's'
+            self.ser.write('s')
 
     def log(self, text):
         print text
@@ -124,7 +140,7 @@ class Recorder(object):
         if self.buffer_index >= self.num_frames - 1:
            self.buffer_index = 0
         else:
-           self.buffer_index += 1 
+           self.buffer_index += 1
 
     def get_ordered_buffer(self):
         """ Returns buffer in correct frame order """
@@ -145,7 +161,7 @@ class Recorder(object):
                      '-r', '%d' % int(round(self.frame_rate)),
                      '-f','image2pipe',
                      '-vcodec', 'mjpeg',
-                     '-i', 'pipe:', 
+                     '-i', 'pipe:',
                      '-c:v', 'libx264',
                      '-preset', 'fast',
                      '-crf', '23',
@@ -153,6 +169,7 @@ class Recorder(object):
                      )
 
         p = subprocess.Popen(cmdstring, stdin=subprocess.PIPE)
+        self.encoding_subprocesses.append(p)
         for jpg_frame in self.get_ordered_buffer():
             if jpg_frame is not None:
                 p.stdin.write(jpg_frame)
@@ -162,12 +179,13 @@ class Recorder(object):
         t = threading.Thread(target=self._save_buffer_to_video)
         t.daemon = True
         t.start()
+        self.start_encoding_animation()
 
     def to_grayscale(self, image):
         tmp = cv.CreateImage(cv.GetSize(image), image.depth, 1)
         cv.CvtColor(image, tmp,cv.CV_BGR2GRAY)
         image = self.array(tmp)
-        return image 
+        return image
 
     def calibrate(self):
         print "calibrate"
@@ -193,7 +211,7 @@ class Recorder(object):
         diff_frame = cv2.subtract(white_frame, black_frame)
         threshold_frame = cv2.threshold(diff_frame, settings.CALIBRATION_THRESHOLD, 255, cv2.THRESH_BINARY)[1]
         gradient_frame = cv2.Laplacian(threshold_frame, cv2.CV_64F)
-        gradient_frame = self.threshold(gradient_frame, 255, 256, 255.0) 
+        gradient_frame = self.threshold(gradient_frame, 255, 256, 255.0)
         cv2.imwrite("white.jpg", white_frame)
         cv2.imwrite("black.jpg", black_frame)
         cv2.imwrite("diff.jpg", diff_frame)
@@ -205,7 +223,7 @@ class Recorder(object):
 
         # Get list of all white pixels in the gradient as [(y,x), (y,x), ...]
         border_candidate_points = numpy.transpose(gradient_frame.nonzero())
-        if not border_candidate_points.any(): 
+        if not border_candidate_points.any():
             return
         borders = {}
         for border in ['left', 'right', 'top', 'bottom']:
@@ -349,7 +367,24 @@ class Recorder(object):
         pass
 
     def handle_events(self):
-        # Handle Api events 
+        # Handle Api events
+        while self.ser.inWaiting():
+            if self.ser.readline().strip() == 'press':
+                print "saving video"
+                self.save_buffer_to_video()
+
+        # Check on subprocesses
+        still_running = []
+        for p in self.encoding_subprocesses:
+            print p.poll()
+            if p.poll() is None:
+                still_running.append(p)
+        self.encoding_subprocesses = still_running
+
+        if not self.encoding_subprocesses and datetime.datetime.now() - self.encoding_started > datetime.timedelta(seconds=1):
+            self.stop_encoding_animation()
+
+        # Handle Api events
         with self.api_lock:
             for event in self.api.events:
                 if event == "save":
@@ -450,11 +485,11 @@ class KinectRecorder(Recorder):
             time.sleep(0.2)
             self.calibration_state = 'prepare'
             self.post_video_callbacks.append(self.calibrate)
-       
-        elif self.calibration_state == 'prepare': 
+
+        elif self.calibration_state == 'prepare':
             self.calibration_state = 'capture_white'
             self.post_video_callbacks.append(self.calibrate)
- 
+
         elif self.calibration_state == 'capture_white':
             self.calibration_white_frame = self.to_grayscale(self.last_video_frame)
             self.gui.fill(Color(0, 0, 0))
@@ -462,7 +497,7 @@ class KinectRecorder(Recorder):
             time.sleep(0.2)
             self.calibration_state = 'capture_black'
             self.post_video_callbacks.append(self.calibrate)
- 
+
         elif self.calibration_state == 'capture_black':
             self.calibration_state = None
             white_frame = self.calibration_white_frame
@@ -527,7 +562,7 @@ class KinectRecorder(Recorder):
             print "no device set!"
             return
         freenect.set_tilt_degs(self.dev, tilt)
-    
+
     def handle_custom_event(self, event):
         if event.key == 'o':
             self.overlay_video = not self.overlay_video
@@ -581,7 +616,7 @@ class KinectRecorder(Recorder):
         self.post_depth_callbacks = []
 
     def loop(self):
-        """ Freenect has its own looping function, so we have to use that. 
+        """ Freenect has its own looping function, so we have to use that.
             Put general things that should happen in every frame into the "body" callback.
         """
         freenect.runloop(depth=self.handle_depth_frame, video=self.handle_video_frame, body=self.kinect_body_callback)
@@ -597,4 +632,4 @@ if __name__ == "__main__":
         recorder.loop()
     except KeyboardInterrupt:
         pass
-   
+
