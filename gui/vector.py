@@ -1,87 +1,90 @@
-# Super simple vector class 
+# Super simple vector class
 import math
 
+
 class V(object):
-	def __init__(self, x=0, y=0):
-		self.x = float(x)
-		self.y = float(y)
+    def __init__(self, x=0, y=0):
+        self.x = float(x)
+        self.y = float(y)
 
-	def __unicode__(self):
-		return "(%s, %s)" % (self.x, self.y)
-	__repr__ = __unicode__
+    def __unicode__(self):
+        return "(%s, %s)" % (self.x, self.y)
+    __repr__ = __unicode__
 
-	@classmethod
-	def from_tuple(cls, (x,y)):
-		return V(x,y)
+    @classmethod
+    def from_tuple(cls, (x, y)):
+        return V(x, y)
 
-	@classmethod
-	def intersection(cls, o1, d1, o2, d2):
-		""" Find intersection of two vectors, if any """		
-		try:
-			l2 = ((o2.x - o1.x)*d1.y/d1.x - o2.y + o1.y) / (d2.y - d2.x*d1.y/d1.x)
-			return o2 + d2*l2
-		except ZeroDivisionError:
-			return None
+    @classmethod
+    def intersection(cls, o1, d1, o2, d2):
+        """ Find intersection of two vectors, if any """
+        try:
+            l2 = ((o2.x - o1.x)*d1.y/d1.x - o2.y + o1.y) / (d2.y - d2.x*d1.y/d1.x)
+            return o2 + d2*l2
+        except ZeroDivisionError:
+            return None
 
-	@classmethod
-	def point_line_projection(cls, v1, v2, p):
-		""" Returns the projection of the point p on the line defined 
-			by the two endpoints v1 and v2
-		"""
-		d = v2-v1
-		l2 = d.abs_sq()
-		if l2 == 0:
-			return p - v1
+    @classmethod
+    def point_line_projection(cls, v1, v2, p):
+        """ Returns the projection of the point p on the line defined
+            by the two endpoints v1 and v2
+        """
+        d = v2-v1
+        l2 = d.abs_sq()
+        if l2 == 0:
+            return p - v1
 
-		a = ((p-v1) * d)/l2
-		return v1 + d * a
+        a = ((p-v1) * d)/l2
+        return v1 + d * a
 
-	def abs_sq(self):
-		""" Square of absolute value of vector self """
-		return abs(self.x*self.x + self.y*self.y)
+    def abs_sq(self):
+        """ Square of absolute value of vector self """
+        return abs(self.x*self.x + self.y*self.y)
 
-	def abs(self):
-		return math.sqrt(self.abs_sq())
+    def abs(self):
+        return math.sqrt(self.abs_sq())
 
-	def consume_tuple(self, other):
-		if isinstance(other, tuple) or isinstance(other, list):
-			return V(other[0], other[1])
-		return other
+    def consume_tuple(self, other):
+        if isinstance(other, tuple) or isinstance(other, list):
+            return V(other[0], other[1])
+        return other
 
-	def cross(self, other):
-		""" cross product """
-		return V(self.x*other.y - other.x*self.y)
+    def cross(self, other):
+        """ cross product """
+        return V(self.x*other.y - other.x*self.y)
 
-	def __cmp__(self, other):
-		other = self.consume_tuple(other)
-		if self.x == other.x and self.y == other.y: return 0
-		if self.abs() < other.abs(): return -1
-		return 1
+    def __cmp__(self, other):
+        other = self.consume_tuple(other)
+        if self.x == other.x and self.y == other.y:
+            return 0
+        if self.abs() < other.abs():
+            return -1
+        return 1
 
-	def __nonzero__(self):
-		if self.x or self.y:
-			return True
-		return False
+    def __nonzero__(self):
+        if self.x or self.y:
+            return True
+        return False
 
-	def __neg__(self):
-		return V(-self.x, -self.y)
+    def __neg__(self):
+        return V(-self.x, -self.y)
 
-	def __add__(self, other):
-		other = self.consume_tuple(other)
-		return V(self.x + other.x, self.y + other.y)
+    def __add__(self, other):
+        other = self.consume_tuple(other)
+        return V(self.x + other.x, self.y + other.y)
 
-	def __sub__(self, other):
-		other = self.consume_tuple(other)
-		return V(self.x - other.x, self.y - other.y)
+    def __sub__(self, other):
+        other = self.consume_tuple(other)
+        return V(self.x - other.x, self.y - other.y)
 
-	def __mul__(self, other):
-		other = self.consume_tuple(other)
-		if isinstance(other, V):
-			return (self.x * other.x + self.y * other.y)
-		return V(other * self.x, other * self.y)
+    def __mul__(self, other):
+        other = self.consume_tuple(other)
+        if isinstance(other, V):
+            return (self.x * other.x + self.y * other.y)
+        return V(other * self.x, other * self.y)
 
-	def __div__(self, other):
-		if not other: 
-			raise Exception("Division by zero")
-		other = float(other)
-		return V(self.x/other, self.y/other)
+    def __div__(self, other):
+        if not other:
+            raise Exception("Division by zero")
+        other = float(other)
+        return V(self.x/other, self.y/other)
